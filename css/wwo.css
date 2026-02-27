@@ -254,3 +254,24 @@ body.nerv #fz-tip .fzv{color:#e07020;}
 .eq-body .eq-row{display:flex;justify-content:space-between;color:var(--text-dim);border-bottom:1px solid rgba(128,128,128,0.08);padding:1px 0;}
 .eq-body .eq-row span:last-child{color:var(--accent);}
 .eq-body .eq-link{display:block;margin-top:6px;font-family:var(--ft);font-size:8px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;}
+
+/* ── WEATHER LAYER TOGGLES ─────────────────────────────────────────────────── */
+.wx-group{display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px 8px;}
+.wx-btn{
+  font-family:var(--ft);font-size:8px;letter-spacing:2px;
+  padding:4px 8px;border:1px solid var(--border);
+  color:var(--text-dim);cursor:pointer;border-radius:2px;
+  transition:all 0.2s;user-select:none;background:transparent;
+}
+.wx-btn:hover{border-color:var(--text-dim);color:var(--text);}
+.wx-btn.on{
+  border-color:#4da6ff;color:#4da6ff;
+  background:rgba(77,166,255,0.1);
+  box-shadow:0 0 6px rgba(77,166,255,0.2);
+}
+
+/* Disaster pin indicator colours in layer panel */
+.lt [style*="ff4400"]{color:#ff8800;}
+.lt [style*="00aaff"]{color:#00ccff;}
+.lt [style*="ff3300"]{color:#ff6600;}
+.lt [style*="00ddff"]{color:#00ddff;}
