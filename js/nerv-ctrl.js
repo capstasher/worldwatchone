@@ -40,6 +40,8 @@ function togNerv(){
   // Update button label
   const btn=document.querySelector('.nerv-btn');
   if(btn)btn.textContent=nervMode?'CTRL':'NERV';
+  // Recolour outage overlay to match NERV/CTRL theme
+  if(typeof outageThemeUpdate === 'function') outageThemeUpdate();
   // Cache normal paints on first toggle
   if(!nervCached){
     baseLayerIds.forEach(id=>{try{const l=map.getLayer(id);if(!l)return;const t=l.type;
@@ -78,4 +80,3 @@ async function fetchDivergence(){
 }
 fetchDivergence();
 setInterval(fetchDivergence,60*1000);// refresh every minute
-
