@@ -165,83 +165,73 @@ function parseTelegramHTML(html,ch){
   return msgs;
 }
 
+// Extract images from RSS item description HTML (RSSHub includes <img> tags)
+function extractRSSMedia(html){
+  const media=[];
+  const imgRe=/<img[^>]+src="([^"]+)"/gi;
+  let m;
+  while((m=imgRe.exec(html))!==null){
+    const url=m[1];
+    if(url&&!url.includes('emoji')&&!url.includes('icon'))
+      media.push({type:'photo',url,thumb:url});
+  }
+  return media;
+}
+
 async function fetchTelegramChannel(ch){
   const cutoff=Date.now()-24*60*60*1000;
 
-  // ── METHOD 1: Direct tg.i-c-a.su (fastest when it works) ──
-  try{
-    const url=TG_JSON_API+encodeURIComponent(ch.channel)+'?limit=20';
-    const r=await fetch(url,{signal:AbortSignal.timeout(5000)});
-    if(!r.ok)throw new Error(r.status);
-    const d=await r.json();
-    if(d.messages&&Array.isArray(d.messages)&&injectTgMessages(d.messages,ch,cutoff)){
-      console.log(`[TG] ${ch.channel}: OK via direct (${d.messages.length} msgs)`);return;
-    }
-  }catch(e){console.log(`[TG] ${ch.channel}: direct failed (${e.message})`);}
-
-  // ── METHOD 2: tg.i-c-a.su via CORS proxies ──
-  for(let pi=0;pi<CORS_PROXIES.length;pi++){
-    try{
-      const url=CORS_PROXIES[pi](TG_JSON_API+ch.channel+'?limit=20');
-      const r=await fetch(url,{signal:AbortSignal.timeout(6000)});
-      if(!r.ok)continue;
-      const d=await r.json();
-      if(d.messages&&Array.isArray(d.messages)&&injectTgMessages(d.messages,ch,cutoff)){
-        console.log(`[TG] ${ch.channel}: OK via proxy${pi+1}`);return;
-      }
-    }catch(e){continue;}
-  }
-
-  // ── METHOD 3: Telegram web preview HTML via CORS proxy ──
-  for(let pi=0;pi<CORS_PROXIES.length;pi++){
-    try{
-      const url=CORS_PROXIES[pi]('https://t.me/s/'+ch.channel);
-      const r=await fetch(url,{signal:AbortSignal.timeout(6000)});
-      if(!r.ok)continue;
-      const html=await r.text();
-      const msgs=parseTelegramHTML(html,ch);
-      if(msgs.length>0){
-        let added=0;
-        msgs.slice(-15).forEach(msg=>{
-          const pubDate=new Date(msg.date);
-          if(pubDate.getTime()<cutoff)return;
-          const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
-          const media=msg.media||[];
-          const postObj={text:msg.text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
-          liveTelegramPosts.push(postObj);
-          if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-          addLiveItem(msg.text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
-          added++;
-        });
-        if(added>0){console.log(`[TG] ${ch.channel}: OK via HTML scrape proxy${pi+1} (${added} msgs)`);return;}
-      }
-    }catch(e){continue;}
-  }
-
-  // ── METHOD 4: RSSHub via rss2json fallback ──
+  // ── METHOD 1: RSSHub via Worker proxy (primary — server IP doesn't matter) ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
-    const url2=RSS2JSON+encodeURIComponent(rssUrl)+'&count=8';
-    const r2=await fetch(url2,{signal:AbortSignal.timeout(8000)});
-    if(!r2.ok){console.log(`[TG] ${ch.channel}: RSSHub failed (${r2.status})`);return;}
-    const d2=await r2.json();
-    if(d2.status!=='ok'||!Array.isArray(d2.items)){console.log(`[TG] ${ch.channel}: RSSHub bad response`);return;}
-    let rssAdded=0;
-    d2.items.slice(0,5).reverse().forEach(item=>{
-      const text=stripHtml(item.description||item.title||'');
-      if(!text||text.length<15)return;
-      const pubDate=item.pubDate||new Date().toISOString();
-      if(new Date(pubDate).getTime()<cutoff)return;
-      const link=item.link||`https://t.me/${ch.channel}`;
-      const postObj={text,source:ch.label,pubDate,link,zone:ch.zone,ty:ch.ty,channel:ch.channel};
-      liveTelegramPosts.push(postObj);
-      if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-      addLiveItem(text,ch.label,pubDate,link,ch.zone,ch.ty,true);
-      rssAdded++;
-    });
-    if(rssAdded>0)console.log(`[TG] ${ch.channel}: OK via RSSHub (${rssAdded} msgs)`);
-    else console.log(`[TG] ${ch.channel}: RSSHub returned 0 valid items`);
-  }catch(e2){console.log(`[TG] ${ch.channel}: ALL METHODS FAILED`);}
+    const r=await fetch(PROXY(rssUrl),{signal:AbortSignal.timeout(10000)});
+    if(!r.ok)throw new Error('RSSHub '+r.status);
+    const xml=await r.text();
+    const items=parseRSSXml(xml);
+    if(items.length>0){
+      let added=0;
+      items.slice(0,15).reverse().forEach(item=>{
+        const text=stripHtml(item.title||item.description||'');
+        if(!text||text.length<15)return;
+        const pubDate=item.pubDate?new Date(item.pubDate):new Date();
+        if(pubDate.getTime()<cutoff)return;
+        const link=item.link||`https://t.me/${ch.channel}`;
+        // Extract image from description enclosure if present
+        const media=extractRSSMedia(item.description||'');
+        const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
+        liveTelegramPosts.push(postObj);
+        if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
+        addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        added++;
+      });
+      if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub (${added} items)`);return;}
+    }
+  }catch(e){console.log(`[TG] ${ch.channel}: RSSHub failed (${e.message})`);}
+
+  // ── METHOD 2: Telegram web preview HTML via Worker proxy ──
+  try{
+    const r=await fetch(PROXY('https://t.me/s/'+ch.channel),{signal:AbortSignal.timeout(8000)});
+    if(!r.ok)throw new Error('t.me '+r.status);
+    const html=await r.text();
+    const msgs=parseTelegramHTML(html,ch);
+    if(msgs.length>0){
+      let added=0;
+      msgs.slice(-15).forEach(msg=>{
+        const pubDate=new Date(msg.date);
+        if(pubDate.getTime()<cutoff)return;
+        const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
+        const media=msg.media||[];
+        const postObj={text:msg.text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
+        liveTelegramPosts.push(postObj);
+        if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
+        addLiveItem(msg.text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        added++;
+      });
+      if(added>0){console.log(`[TG] ${ch.channel}: OK via HTML scrape (${added} msgs)`);return;}
+    }
+  }catch(e){console.log(`[TG] ${ch.channel}: HTML scrape failed (${e.message})`);}
+
+  console.log(`[TG] ${ch.channel}: ALL METHODS FAILED`);
 }
 
 // Extract media attachments from a tg.i-c-a.su message object
@@ -393,4 +383,3 @@ setInterval(async()=>{
     await new Promise(r=>setTimeout(r,300));
   }
 },30*1000);
-
