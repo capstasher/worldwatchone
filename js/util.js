@@ -38,8 +38,8 @@ function classifyTy(title){
   return'in';
 }
 
-function addLiveItem(title,source,pubDate,link,zone,ty,isTweet=false){
-  // Dedup key: source + first 80 chars (prevents cross-source dedup of similar titles)
+function addLiveItem(title,source,pubDate,link,zone,ty,isTweet=false,media=[]){
+  // Dedup key: source + first 80 chars
   const key=(source||'')+'|'+(title||'').slice(0,80);
   if(!key||liveFeedItems.has(key))return;
   liveFeedItems.add(key);
@@ -48,41 +48,112 @@ function addLiveItem(title,source,pubDate,link,zone,ty,isTweet=false){
   const el=document.createElement('div');
   const itemTy=classifyTy(title)||ty||'in';
   el.className='fi '+itemTy;
-  el.title=link?'Click to open':'';
 
-  // Store timestamp for sorted insertion
   const ts=pubDate?new Date(pubDate).getTime():0;
   el.dataset.ts=ts;
 
-  // Telegram badge vs news zone tag
   const badge=isTweet
     ? `<span style="color:#1d9bf0;font-size:8px;font-family:var(--ft);letter-spacing:1px;border:1px solid rgba(29,155,240,0.3);padding:1px 4px;border-radius:2px">TELEGRAM</span>`
     : `<span style="color:var(--text-dim);font-size:9px;font-family:var(--fm)">${zone.toUpperCase()}</span>`;
+
+  // Media strip — thumbnails that expand on click
+  let mediaHtml='';
+  if(media&&media.length>0){
+    const thumbs=media.map((m,i)=>{
+      const isVideo=m.type==='video';
+      const overlay=isVideo?`<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;pointer-events:none">▶</span>`:'';
+      return `<div class="fi-thumb" data-idx="${i}" style="position:relative;display:inline-block;width:60px;height:45px;overflow:hidden;border-radius:2px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);flex-shrink:0">` +
+        `<img src="${m.thumb||m.url}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.parentElement.style.display='none'">` +
+        overlay + `</div>`;
+    }).join('');
+    mediaHtml=`<div class="fi-media" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${thumbs}</div>`;
+  }
 
   el.innerHTML=
     `<div class="fs" style="display:flex;justify-content:space-between;align-items:center">`+
       `<span>${source}</span>${badge}`+
     `</div>`+
     `<div style="font-size:10px;line-height:1.45">${title}</div>`+
+    mediaHtml+
     `<div class="ft">${timeAgo(pubDate)}</div>`;
 
-  if(link){
+  // Click: if has media, clicking text opens link; clicking thumb opens lightbox
+  if(media&&media.length>0){
+    el.querySelectorAll('.fi-thumb').forEach(thumb=>{
+      thumb.addEventListener('click',e=>{
+        e.stopPropagation();
+        openMediaLightbox(media,parseInt(thumb.dataset.idx));
+      });
+    });
+    if(link){
+      el.style.cursor='pointer';
+      el.addEventListener('click',()=>window.open(link,'_blank','noopener'));
+    }
+  } else if(link){
     el.style.cursor='pointer';
     el.addEventListener('click',()=>window.open(link,'_blank','noopener'));
   }
 
-  // Insert sorted by date: newest at top, oldest at bottom
+  // Insert sorted newest first
   let inserted=false;
   if(ts>0){
     const ofE=document.getElementById('of');
-  if(!ofE)return;
-  for(const child of ofE.children){
+    if(!ofE)return;
+    for(const child of ofE.children){
       const childTs=Number(child.dataset.ts)||0;
       if(ts>childTs){ofE.insertBefore(el,child);inserted=true;break;}
     }
   }
-  if(!inserted)ofE.appendChild(el);
-  while(ofE.children.length>200)ofE.removeChild(ofE.lastChild);
+  if(!inserted){const ofE=document.getElementById('of');if(ofE)ofE.appendChild(el);}
+  const ofE=document.getElementById('of');
+  if(ofE)while(ofE.children.length>2000)ofE.removeChild(ofE.lastChild);
+}
+
+// ── Media lightbox ──────────────────────────────────────────────────────────
+function openMediaLightbox(media,startIdx=0){
+  // Remove any existing lightbox
+  const existing=document.getElementById('media-lb');
+  if(existing)existing.remove();
+
+  let idx=startIdx;
+  const lb=document.createElement('div');
+  lb.id='media-lb';
+  lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px';
+
+  function render(){
+    const m=media[idx];
+    const isVideo=m.type==='video';
+    const counter=media.length>1?`<div style="color:rgba(255,255,255,0.5);font-family:var(--ft);font-size:10px;letter-spacing:2px">${idx+1} / ${media.length}</div>`:'';
+    const nav=media.length>1
+      ? `<div style="display:flex;gap:20px;margin-top:8px">
+           <button class="lb-prev" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-family:var(--ft);padding:4px 14px;cursor:pointer;border-radius:2px">◀</button>
+           <button class="lb-next" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-family:var(--ft);padding:4px 14px;cursor:pointer;border-radius:2px">▶</button>
+         </div>` : '';
+    lb.innerHTML=
+      `<div style="position:absolute;top:16px;right:20px;color:rgba(255,255,255,0.4);font-size:20px;cursor:pointer;font-family:var(--ft)" id="lb-close">✕</div>`+
+      counter+
+      (isVideo
+        ? `<video src="${m.url}" controls autoplay style="max-width:90vw;max-height:75vh;border-radius:3px"></video>`
+        : `<img src="${m.url||m.thumb}" style="max-width:90vw;max-height:75vh;border-radius:3px;object-fit:contain">`)+
+      nav;
+    lb.querySelector('#lb-close').onclick=()=>lb.remove();
+    lb.onclick=e=>{if(e.target===lb)lb.remove();};
+    const prev=lb.querySelector('.lb-prev');
+    const next=lb.querySelector('.lb-next');
+    if(prev)prev.onclick=e=>{e.stopPropagation();idx=(idx-1+media.length)%media.length;render();};
+    if(next)next.onclick=e=>{e.stopPropagation();idx=(idx+1)%media.length;render();};
+  }
+
+  render();
+  document.body.appendChild(lb);
+
+  // Keyboard nav
+  function onKey(e){
+    if(e.key==='Escape'){lb.remove();document.removeEventListener('keydown',onKey);}
+    if(e.key==='ArrowLeft'&&media.length>1){idx=(idx-1+media.length)%media.length;render();}
+    if(e.key==='ArrowRight'&&media.length>1){idx=(idx+1)%media.length;render();}
+  }
+  document.addEventListener('keydown',onKey);
 }
 
 // ── News fetcher ─────────────────────────────────────────────────────────────
@@ -104,3 +175,4 @@ function parseRSSXml(xmlStr){
     return results;
   }catch(e){return[];}
 }
+
