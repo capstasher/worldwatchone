@@ -1,0 +1,1020 @@
+{
+  "conflicts": [
+    {
+      "name": "Eastern Ukraine / Donbas",
+      "lat": 48.5,
+      "lng": 37.8,
+      "int": 0.95,
+      "type": "ARMED CONFLICT",
+      "region": "Ukraine",
+      "events": 847,
+      "disp": "6.5M"
+    },
+    {
+      "name": "Kherson / Zaporizhzhia Front",
+      "lat": 46.6,
+      "lng": 33,
+      "int": 0.82,
+      "type": "ARMED CONFLICT",
+      "region": "Ukraine",
+      "events": 412,
+      "disp": "1.2M"
+    },
+    {
+      "name": "Kursk Salient",
+      "lat": 51.7,
+      "lng": 36.2,
+      "int": 0.7,
+      "type": "ARMED CONFLICT",
+      "region": "Ukraine",
+      "events": 198,
+      "disp": "180K"
+    },
+    {
+      "name": "Gaza Strip",
+      "lat": 31.35,
+      "lng": 34.31,
+      "int": 0.98,
+      "type": "ARMED CONFLICT",
+      "region": "Palestine",
+      "events": 1240,
+      "disp": "2.3M"
+    },
+    {
+      "name": "West Bank",
+      "lat": 31.95,
+      "lng": 35.25,
+      "int": 0.55,
+      "type": "CIVIL UNREST",
+      "region": "Palestine",
+      "events": 89,
+      "disp": "120K"
+    },
+    {
+      "name": "Southern Lebanon",
+      "lat": 33.2,
+      "lng": 35.5,
+      "int": 0.65,
+      "type": "ARMED CONFLICT",
+      "region": "Lebanon",
+      "events": 245,
+      "disp": "500K"
+    },
+    {
+      "name": "Iran – Isfahan Nuclear Complex",
+      "lat": 32.65,
+      "lng": 51.68,
+      "int": 0.6,
+      "type": "MILITARY TENSION",
+      "region": "Iran",
+      "events": 12,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Natanz Enrichment",
+      "lat": 33.72,
+      "lng": 51.73,
+      "int": 0.55,
+      "type": "MILITARY TENSION",
+      "region": "Iran",
+      "events": 8,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Bushehr Nuclear Plant",
+      "lat": 28.83,
+      "lng": 50.89,
+      "int": 0.45,
+      "type": "MILITARY TENSION",
+      "region": "Iran",
+      "events": 5,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Fordow Mountain Facility",
+      "lat": 34.88,
+      "lng": 51.59,
+      "int": 0.55,
+      "type": "MILITARY TENSION",
+      "region": "Iran",
+      "events": 6,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Tehran Military District",
+      "lat": 35.69,
+      "lng": 51.39,
+      "int": 0.65,
+      "type": "MILITARY TENSION",
+      "region": "Iran",
+      "events": 18,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Kharg Island Oil Terminal",
+      "lat": 29.24,
+      "lng": 50.31,
+      "int": 0.5,
+      "type": "STRATEGIC ASSET",
+      "region": "Iran",
+      "events": 7,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Bandar Abbas Naval Base",
+      "lat": 27.18,
+      "lng": 56.27,
+      "int": 0.55,
+      "type": "NAVAL BASE",
+      "region": "Iran",
+      "events": 15,
+      "disp": "0"
+    },
+    {
+      "name": "Strait of Hormuz",
+      "lat": 26.56,
+      "lng": 56.25,
+      "int": 0.6,
+      "type": "NAVAL THREAT",
+      "region": "Iran",
+      "events": 34,
+      "disp": "0"
+    },
+    {
+      "name": "Iran – Chabahar Port",
+      "lat": 25.29,
+      "lng": 60.64,
+      "int": 0.3,
+      "type": "STRATEGIC ASSET",
+      "region": "Iran",
+      "events": 3,
+      "disp": "0"
+    },
+    {
+      "name": "Iraq – Iran-backed Militias",
+      "lat": 33.3,
+      "lng": 44.4,
+      "int": 0.5,
+      "type": "INSURGENCY",
+      "region": "Iran",
+      "events": 67,
+      "disp": "95K"
+    },
+    {
+      "name": "Syria – IRGC Positions",
+      "lat": 33.5,
+      "lng": 36.3,
+      "int": 0.55,
+      "type": "MILITARY TENSION",
+      "region": "Iran",
+      "events": 42,
+      "disp": "200K"
+    },
+    {
+      "name": "Khartoum, Sudan",
+      "lat": 15.59,
+      "lng": 32.53,
+      "int": 0.85,
+      "type": "ARMED CONFLICT",
+      "region": "Sudan",
+      "events": 567,
+      "disp": "8M"
+    },
+    {
+      "name": "Darfur",
+      "lat": 13,
+      "lng": 25,
+      "int": 0.7,
+      "type": "ARMED CONFLICT",
+      "region": "Sudan",
+      "events": 312,
+      "disp": "3M"
+    },
+    {
+      "name": "Northern Myanmar",
+      "lat": 23.5,
+      "lng": 97.5,
+      "int": 0.65,
+      "type": "ARMED CONFLICT",
+      "region": "Myanmar",
+      "events": 234,
+      "disp": "1.5M"
+    },
+    {
+      "name": "Eastern DRC / M23",
+      "lat": -1.5,
+      "lng": 29,
+      "int": 0.72,
+      "type": "ARMED CONFLICT",
+      "region": "DRC",
+      "events": 389,
+      "disp": "2.1M"
+    },
+    {
+      "name": "Sahel – Burkina Faso",
+      "lat": 12.3,
+      "lng": -1.5,
+      "int": 0.55,
+      "type": "INSURGENCY",
+      "region": "Sahel",
+      "events": 145,
+      "disp": "2M"
+    },
+    {
+      "name": "Red Sea / Houthi Corridor",
+      "lat": 14.5,
+      "lng": 42,
+      "int": 0.6,
+      "type": "NAVAL THREAT",
+      "region": "Red Sea",
+      "events": 89,
+      "disp": "0"
+    },
+    {
+      "name": "Southern Yemen",
+      "lat": 13,
+      "lng": 45,
+      "int": 0.7,
+      "type": "ARMED CONFLICT",
+      "region": "Yemen",
+      "events": 198,
+      "disp": "4.5M"
+    },
+    {
+      "name": "Somalia / Al-Shabaab",
+      "lat": 5.1,
+      "lng": 46.1,
+      "int": 0.55,
+      "type": "INSURGENCY",
+      "region": "Somalia",
+      "events": 123,
+      "disp": "3.8M"
+    },
+    {
+      "name": "Northern Mozambique",
+      "lat": -12.5,
+      "lng": 40,
+      "int": 0.45,
+      "type": "INSURGENCY",
+      "region": "Mozambique",
+      "events": 67,
+      "disp": "800K"
+    },
+    {
+      "name": "Port-au-Prince, Haiti",
+      "lat": 18.97,
+      "lng": -72.34,
+      "int": 0.5,
+      "type": "CIVIL UNREST",
+      "region": "Haiti",
+      "events": 78,
+      "disp": "360K"
+    },
+    {
+      "name": "NW Pakistan / Balochistan",
+      "lat": 34,
+      "lng": 71.5,
+      "int": 0.4,
+      "type": "INSURGENCY",
+      "region": "Pakistan",
+      "events": 56,
+      "disp": "100K"
+    },
+    {
+      "name": "Taiwan Strait",
+      "lat": 24,
+      "lng": 119.5,
+      "int": 0.35,
+      "type": "TENSION",
+      "region": "Taiwan Strait",
+      "events": 12,
+      "disp": "0"
+    },
+    {
+      "name": "South China Sea",
+      "lat": 12,
+      "lng": 114,
+      "int": 0.25,
+      "type": "TENSION",
+      "region": "SCS",
+      "events": 8,
+      "disp": "0"
+    },
+    {
+      "name": "Northern Ethiopia / Amhara",
+      "lat": 11.5,
+      "lng": 39.5,
+      "int": 0.45,
+      "type": "INSURGENCY",
+      "region": "Ethiopia",
+      "events": 87,
+      "disp": "1.2M"
+    },
+    {
+      "name": "Jalisco — CJNG Crisis",
+      "lat": 20.68,
+      "lng": -103.35,
+      "int": 0.9,
+      "type": "CARTEL CRISIS",
+      "region": "Mexico",
+      "events": 50,
+      "disp": "0",
+      "summary": "CJNG leader Nemesio Oseguera Cervantes 'El Mencho' killed by Mexican military in Tapalpa, Jalisco on 22 Feb 2026. Cartel launched massive retaliatory attacks: Guadalajara airport stormed, 10+ vehicles burned in Puerto Vallarta, roadblocks across Jalisco. Code Red declared. Flights diverted from PVR and GDL. US Embassy issued shelter-in-place for Jalisco, Tamaulipas, Michoacán, Guerrero, Nuevo León. CJNG designated Foreign Terrorist Organization by US in Feb 2025. $15M bounty. Succession crisis expected — risk of cartel fragmentation and inter-cartel war."
+    },
+    {
+      "name": "Michoacán — CJNG Retaliation",
+      "lat": 19.7,
+      "lng": -101.2,
+      "int": 0.7,
+      "type": "CARTEL CRISIS",
+      "region": "Mexico",
+      "events": 30,
+      "disp": "0",
+      "summary": "13 municipalities in Michoacán reporting narcobloqueos and armed unrest following El Mencho's death. Governor Bedolla deployed coordinated state and federal forces. Michoacán is CJNG heartland — El Mencho's birthplace near Aguililla. Expect intensifying violence as succession disputes unfold."
+    },
+    {
+      "name": "Tamaulipas — Border Blockades",
+      "lat": 26.08,
+      "lng": -98.29,
+      "int": 0.6,
+      "type": "CARTEL CRISIS",
+      "region": "Mexico",
+      "events": 20,
+      "disp": "0",
+      "summary": "Reynosa and other Tamaulipas border municipalities experiencing narcobloqueos, vehicle burnings, and road spikes. US border state. CJNG retaliatory operations concurrent with existing Gulf Cartel territorial disputes."
+    },
+    {
+      "name": "Guanajuato — Arson Attacks",
+      "lat": 21.02,
+      "lng": -101.26,
+      "int": 0.55,
+      "type": "CARTEL CRISIS",
+      "region": "Mexico",
+      "events": 15,
+      "disp": "0",
+      "summary": "CJNG-linked arson attacks on pharmacies and convenience stores across multiple municipalities in Guanajuato. State security forces and National Guard deployed. Guanajuato has been a long-standing warzone between CJNG and the Santa Rosa de Lima Cartel."
+    }
+  ],
+  "frontlines": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Eastern Ukraine – Russian-held Zone",
+          "zone": "Ukraine",
+          "int": 0.95,
+          "type": "ARMED CONFLICT",
+          "disp": "6.5M",
+          "events": 847,
+          "wikiKey": "Russo-Ukrainian_War",
+          "wikiTitle": "2022 Russian invasion of Ukraine",
+          "summary": "Active frontline spanning ~1,000km. Heavy artillery, drone warfare, and ground assaults ongoing. Bakhmut, Avdiivka, Chasiv Yar corridors under sustained pressure."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                37.5,
+                49.8
+              ],
+              [
+                38.2,
+                49.75
+              ],
+              [
+                39.5,
+                49.5
+              ],
+              [
+                40.2,
+                49.2
+              ],
+              [
+                40.4,
+                48.5
+              ],
+              [
+                39.8,
+                47.8
+              ],
+              [
+                39,
+                47.15
+              ],
+              [
+                37.6,
+                47.1
+              ],
+              [
+                36.2,
+                46.65
+              ],
+              [
+                34.2,
+                46.45
+              ],
+              [
+                33.3,
+                46.7
+              ],
+              [
+                33.2,
+                47.1
+              ],
+              [
+                33.75,
+                47.45
+              ],
+              [
+                34.55,
+                47.75
+              ],
+              [
+                35.2,
+                47.5
+              ],
+              [
+                35.8,
+                47.4
+              ],
+              [
+                36.5,
+                47.5
+              ],
+              [
+                37.2,
+                47.9
+              ],
+              [
+                37.25,
+                48.2
+              ],
+              [
+                37.75,
+                48.6
+              ],
+              [
+                37.8,
+                49.05
+              ],
+              [
+                37.5,
+                49.8
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Crimea – Russian-occupied",
+          "zone": "Ukraine",
+          "int": 0.65,
+          "type": "MILITARY OCCUPATION",
+          "disp": "320K",
+          "events": 42,
+          "wikiKey": "Russian_occupation_of_Crimea",
+          "wikiTitle": "Russian occupation of Crimea",
+          "summary": "Russian-occupied since 2014. Sevastopol naval base active. Ukrainian drone and missile strikes on Black Sea Fleet and logistics hubs continue."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                32.5,
+                46.15
+              ],
+              [
+                33.8,
+                46
+              ],
+              [
+                35.1,
+                45.75
+              ],
+              [
+                36.65,
+                45.9
+              ],
+              [
+                36.85,
+                45.3
+              ],
+              [
+                36.1,
+                44.65
+              ],
+              [
+                34.8,
+                44.38
+              ],
+              [
+                33.1,
+                44.38
+              ],
+              [
+                32.38,
+                44.9
+              ],
+              [
+                32.5,
+                46.15
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Kursk Salient (UA incursion)",
+          "zone": "Russia/Ukraine",
+          "int": 0.72,
+          "type": "ACTIVE INCURSION",
+          "disp": "180K",
+          "events": 198,
+          "wikiKey": "2024_Kursk_Oblast_offensive",
+          "wikiTitle": "2024 Kursk Oblast offensive",
+          "summary": "Ukrainian cross-border operation launched Aug 2024. Largest foreign penetration of Russian territory since WWII. Active fighting along a 30km-wide corridor."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                35.3,
+                51.55
+              ],
+              [
+                36,
+                51.85
+              ],
+              [
+                36.75,
+                51.75
+              ],
+              [
+                37.1,
+                51.35
+              ],
+              [
+                36.5,
+                51.1
+              ],
+              [
+                35.4,
+                51.1
+              ],
+              [
+                35.3,
+                51.55
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Gaza Strip",
+          "zone": "Palestine",
+          "int": 0.98,
+          "type": "ARMED CONFLICT",
+          "disp": "2.3M",
+          "events": 1240,
+          "wikiKey": "Gaza_war",
+          "wikiTitle": "Gaza war",
+          "summary": "Ongoing IDF ground operation following Oct 7 2023 attacks. Northern Gaza largely destroyed. Rafah under siege. Severe humanitarian crisis, famine conditions declared."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                34.22,
+                31.605
+              ],
+              [
+                34.565,
+                31.605
+              ],
+              [
+                34.575,
+                31.46
+              ],
+              [
+                34.558,
+                31.22
+              ],
+              [
+                34.235,
+                31.22
+              ],
+              [
+                34.22,
+                31.605
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "West Bank",
+          "zone": "Palestine",
+          "int": 0.55,
+          "type": "CIVIL UNREST",
+          "disp": "120K",
+          "events": 89,
+          "wikiKey": "Israeli_occupation_of_the_West_Bank",
+          "wikiTitle": "Israeli occupation of the West Bank",
+          "summary": "Escalating IDF operations in Jenin, Tulkarm, Nablus. Settler violence at elevated levels. PA authority increasingly contested in northern areas."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                34.9,
+                32.55
+              ],
+              [
+                35.6,
+                32.55
+              ],
+              [
+                35.6,
+                31.35
+              ],
+              [
+                34.88,
+                31.35
+              ],
+              [
+                34.9,
+                32.55
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Khartoum & Central Sudan",
+          "zone": "Sudan",
+          "int": 0.85,
+          "type": "ARMED CONFLICT",
+          "disp": "8M",
+          "events": 567,
+          "wikiKey": "Sudanese_civil_war_(2023–present)",
+          "wikiTitle": "Sudanese civil war (2023–present)",
+          "summary": "SAF vs RSF civil war. Khartoum devastated, infrastructure collapsed. RSF controls most of Darfur and western regions. Largest displacement crisis globally."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                31.2,
+                16.55
+              ],
+              [
+                34.1,
+                16.55
+              ],
+              [
+                34.1,
+                14.4
+              ],
+              [
+                31.2,
+                14.4
+              ],
+              [
+                31.2,
+                16.55
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Darfur",
+          "zone": "Sudan",
+          "int": 0.7,
+          "type": "ETHNIC CONFLICT",
+          "disp": "3M",
+          "events": 312,
+          "wikiKey": "War_in_Darfur",
+          "wikiTitle": "War in Darfur",
+          "summary": "RSF dominates with reports of systematic ethnic violence against non-Arab communities. El Fasher — last SAF-held Darfur city — under prolonged siege. Genocide warnings from UN."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                22,
+                15.9
+              ],
+              [
+                27.6,
+                15.9
+              ],
+              [
+                27.6,
+                10.4
+              ],
+              [
+                22,
+                10.4
+              ],
+              [
+                22,
+                15.9
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Eastern DRC (M23 / North Kivu)",
+          "zone": "DRC",
+          "int": 0.72,
+          "type": "ARMED CONFLICT",
+          "disp": "2.1M",
+          "events": 389,
+          "wikiKey": "Kivu_conflict",
+          "wikiTitle": "Kivu conflict",
+          "summary": "M23 rebels (Rwanda-backed per UN) controlling Goma since Jan 2025. FARDC and UN MONUSCO largely unable to contain advance. Humanitarian corridors disrupted."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                27.5,
+                2.05
+              ],
+              [
+                30.55,
+                2.05
+              ],
+              [
+                30.55,
+                -3.05
+              ],
+              [
+                27.5,
+                -3.05
+              ],
+              [
+                27.5,
+                2.05
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Northern Myanmar Conflict",
+          "zone": "Myanmar",
+          "int": 0.65,
+          "type": "CIVIL WAR",
+          "disp": "1.5M",
+          "events": 234,
+          "wikiKey": "Myanmar_civil_war_(2021–present)",
+          "wikiTitle": "Myanmar civil war (2021–present)",
+          "summary": "Multi-front civil war. Operation 1027 (Oct 2023) saw Brotherhood Alliance capture major SAC positions. Junta controls major cities only. Shan, Kayah, Chin states largely under resistance."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                93.8,
+                27.6
+              ],
+              [
+                99.6,
+                27.6
+              ],
+              [
+                99.6,
+                19.8
+              ],
+              [
+                93.8,
+                19.8
+              ],
+              [
+                93.8,
+                27.6
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Yemen (Houthi Zone + Front)",
+          "zone": "Yemen",
+          "int": 0.7,
+          "type": "ARMED CONFLICT",
+          "disp": "4.5M",
+          "events": 198,
+          "wikiKey": "Yemeni_civil_war_(2014–present)",
+          "wikiTitle": "Yemeni civil war",
+          "summary": "Houthis (Ansar Allah) control Sanaa and northwest. Red Sea shipping attacks ongoing — 100+ vessels struck since Nov 2023. US/UK airstrikes on Houthi positions continuing."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                42.5,
+                18.55
+              ],
+              [
+                49.5,
+                18.55
+              ],
+              [
+                49.5,
+                12.4
+              ],
+              [
+                42.5,
+                12.4
+              ],
+              [
+                42.5,
+                18.55
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Burkina Faso (Sahel Insurgency)",
+          "zone": "Sahel",
+          "int": 0.55,
+          "type": "INSURGENCY",
+          "disp": "2M",
+          "events": 145,
+          "wikiKey": "Insurgency_in_the_Sahel",
+          "wikiTitle": "Insurgency in the Sahel",
+          "summary": "JNIM and ISGS jihadist insurgency controls ~60% of territory. Junta expelled French forces, invited Russian Wagner/Africa Corps. Capital Ouagadougou under periodic threat."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -5.55,
+                15.15
+              ],
+              [
+                -0.05,
+                15.15
+              ],
+              [
+                -0.05,
+                9.4
+              ],
+              [
+                -5.55,
+                9.4
+              ],
+              [
+                -5.55,
+                15.15
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Southern Lebanon",
+          "zone": "Lebanon",
+          "int": 0.6,
+          "type": "MILITARY TENSION",
+          "disp": "500K",
+          "events": 245,
+          "wikiKey": "2024_Lebanon_war",
+          "wikiTitle": "2024 Lebanon war",
+          "summary": "IDF-Hezbollah ceasefire Nov 2024. IDF maintaining positions south of Litani beyond agreed withdrawal timeline. LAF deployment ongoing. Hezbollah rearming under monitoring."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                34.9,
+                33.9
+              ],
+              [
+                36.65,
+                33.9
+              ],
+              [
+                36.65,
+                33.05
+              ],
+              [
+                34.9,
+                33.05
+              ],
+              [
+                34.9,
+                33.9
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "name": "Western Mexico — CJNG Crisis Zone",
+          "zone": "Mexico",
+          "int": 0.85,
+          "type": "CARTEL CRISIS",
+          "disp": "0",
+          "events": 50,
+          "wikiKey": "Jalisco_New_Generation_Cartel",
+          "wikiTitle": "Jalisco New Generation Cartel",
+          "summary": "CJNG leader 'El Mencho' killed 22 Feb 2026. Massive cartel retaliation across 7+ states: narcobloqueos, vehicle burnings, airport attacks. Guadalajara airport stormed, Puerto Vallarta under siege. US shelter-in-place for 5 states. Code Red in Jalisco. Risk of cartel fragmentation and succession war."
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -105.5,
+                21.8
+              ],
+              [
+                -103,
+                22
+              ],
+              [
+                -101,
+                21.5
+              ],
+              [
+                -100.5,
+                20.8
+              ],
+              [
+                -100.8,
+                19.5
+              ],
+              [
+                -101.5,
+                18.8
+              ],
+              [
+                -102.8,
+                18.6
+              ],
+              [
+                -104.2,
+                19
+              ],
+              [
+                -105.3,
+                19.8
+              ],
+              [
+                -105.7,
+                20.8
+              ],
+              [
+                -105.5,
+                21.8
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  }
+}

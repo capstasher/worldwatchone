@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WORLD WATCH ONE // Global Monitoring System</title>
+<script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.4/satellite.min.js"></script>
+<link rel="stylesheet" href="css/wwo.css?v=1772211239">
+</head>
+<body class="nerv">
+
+<div id="js-err" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#ff000099;color:#fff;font-family:monospace;font-size:11px;padding:8px;z-index:99999;max-height:120px;overflow:auto;white-space:pre-wrap"></div>
+<script>
+window.onerror=function(msg,src,line,col,err){
+  var d=document.getElementById('js-err');
+  d.style.display='block';
+  d.textContent+=(src||'').split('/').pop()+':'+line+' '+msg+'\n';
+};
+window.addEventListener('unhandledrejection',function(e){
+  var d=document.getElementById('js-err');
+  d.style.display='block';
+  d.textContent+='PROMISE: '+(e.reason&&e.reason.message||e.reason)+'\n';
+});
+</script>
+
+<div id="map"></div>
+
+<div id="transition-circle"></div>
+<div id="orrery-overlay">
+  <canvas id="orrery-canvas"></canvas>
+
+  <div id="orrery-info">HOVER PLANET TO IDENTIFY // CLICK TO INSPECT</div>
+  <div id="mp-float" style="display:none">
+    <div class="mp-vol-strip mp-vol-strip-left" id="mp-vol-strip-f" onclick="mpVolToggle('float',event)">
+      <span>VOLUME</span>
+      <div class="mp-vol-strip-fill"></div>
+    </div>
+    <div class="mp-inner">
+      <div class="mp-track-info">
+        <div class="mp-title-wrap"><div class="mp-title" id="mp-title-f">—</div></div>
+        <div class="mp-artist-wrap"><div class="mp-artist" id="mp-artist-f">—</div></div>
+      </div>
+      <div class="mp-progress-row">
+        <div class="mp-bar-wrap" id="mp-bar-wrap-f">
+          <div class="mp-bar-fill" id="mp-bar-fill-f"></div>
+        </div>
+      </div>
+      <div class="mp-time-row">
+        <span class="mp-time" id="mp-time-cur-f">0:00</span>
+        <span class="mp-time" id="mp-time-dur-f">0:00</span>
+      </div>
+      <div class="mp-controls">
+        <button class="mp-btn" id="mp-prev-f" onclick="mpPrev()" title="Previous"><span>⏮</span></button>
+        <button class="mp-btn mp-btn-play" id="mp-play-f" onclick="mpToggle()" title="Play"><span>▶</span></button>
+        <button class="mp-btn" id="mp-next-f" onclick="mpNext()" title="Next"><span>⏭</span></button>
+      </div>
+    </div>
+  </div>
+  <div id="planet-detail">
+    <div class="pd-header"><span id="pd-name">--</span><button class="pd-close" onclick="closePlanetDetail()">×</button></div>
+    <div id="pd-body"></div>
+  </div>
+</div>
+
+<div id="scanlines"></div>
+<div id="vignette"></div>
+
+<div id="header" class="panel">
+  <div class="logo">WORLD WATCH ONE <span>GLOBAL MONITORING v4.0.0 // SPACE+OSINT+SIGINT</span></div>
+  <div class="sys-info">
+    <div><span class="sd g"></span> SIGINT</div>
+    <div><span class="sd g"></span> GEOINT</div>
+    <div><span class="sd a"></span> OSINT/TG</div>
+    <div><span class="sd g"></span> SATCOM</div>
+    <div id="wiki-status" style="font-family:var(--fm);font-size:10px;color:var(--warning);letter-spacing:1px">WIKI: SYNCING</div>
+    <div id="sky-status" style="font-family:var(--fm);font-size:10px;color:var(--warning);letter-spacing:1px">SKY: CONNECTING</div>
+    <div id="net-status" style="font-family:var(--fm);font-size:10px;color:var(--warning);letter-spacing:1px">NET: MONITORING</div>
+    <div id="sat-status" style="font-family:var(--fm);font-size:10px;color:var(--warning);letter-spacing:1px">TLE: SYNCING</div>
+    <button id="space-btn" onclick="toggleSpaceTab()" style="background:none;border:1px solid rgba(120,80,200,0.4);color:#aa88ff;font-family:var(--ft);font-size:9px;letter-spacing:2px;padding:3px 10px;cursor:pointer;transition:all 0.3s" onmouseover="this.style.borderColor='#aa88ff';this.style.background='rgba(120,80,200,0.15)'" onmouseout="this.style.borderColor='rgba(120,80,200,0.4)';this.style.background='none'">☀ SPACE</button><div id="utc" style="letter-spacing:1px">--:--:--</div>
+  </div>
+</div>
+
+<div id="search-box"><div style="position:relative"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px">&#9906;</span><input id="si" type="text" placeholder="Search flights, satellites, conflicts, cameras..."></div><div id="sr"></div></div>
+
+<div id="pl" class="panel">
+  <div class="panel-title">DATA LAYERS</div>
+  <div class="lt on" data-l="flights" onclick="togL(this)"><div class="ind"></div>FLIGHTS<span class="cnt" id="fc">0</span></div>
+  <div style="padding-left:22px;font-size:9px;display:flex;gap:6px;margin:-2px 0 4px">
+    <label style="color:#00cc66;cursor:pointer"><input type="checkbox" id="ft-com" checked onchange="filterFlights()" style="margin-right:2px;accent-color:#00cc66">COM</label>
+    <label style="color:#ff3333;cursor:pointer"><input type="checkbox" id="ft-mil" checked onchange="filterFlights()" style="margin-right:2px;accent-color:#ff3333">MIL</label>
+    <label style="color:#00ccff;cursor:pointer"><input type="checkbox" id="ft-light" checked onchange="filterFlights()" style="margin-right:2px;accent-color:#00ccff">LIGHT</label>
+  </div>
+  <div class="lt on" data-l="sats" onclick="togL(this)"><div class="ind"></div>SATELLITES<span class="cnt" id="sc2">0</span></div>
+  <div class="lt on" data-l="conf" onclick="togL(this)"><div class="ind"></div>CONFLICTS<span class="cnt" id="cc2">0</span></div>
+  <div class="lt on" data-l="cams" onclick="togL(this)"><div class="ind"></div>CCTV<span class="cnt" id="kc">0</span></div>
+  <div class="sub-filters" style="padding-left:22px;display:flex;gap:8px;margin:-2px 0 4px 0">
+    <label style="color:#00ff88;cursor:pointer;font-size:9px"><input type="checkbox" id="cam-global" checked onchange="filterCams()" style="margin-right:2px;accent-color:#00ff88">GLOBAL</label>
+    <label style="color:#ffaa00;cursor:pointer;font-size:9px"><input type="checkbox" id="cam-uk" checked onchange="filterCams()" style="margin-right:2px;accent-color:#ffaa00">UK TRAFFIC</label>
+  </div>
+  <div class="lt on" data-l="fronts" onclick="togL(this)"><div class="ind"></div>FRONTLINES<span class="cnt" id="flc">12</span></div>
+  <div class="lt on" data-l="quakes" onclick="togL(this)"><div class="ind"></div>EARTHQUAKES<span class="cnt" id="eqc">0</span></div>
+  <div class="lt on" data-l="outages" onclick="togL(this)"><div class="ind"></div>NET OUTAGES<span class="cnt" id="outc">0</span></div>
+  <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
+  <div class="dvd"></div>
+  <div class="panel-title">AUDIO</div>
+  <div id="mp-sidebar">
+    <div class="mp-inner">
+      <div class="mp-track-info">
+        <div class="mp-title-wrap"><div class="mp-title" id="mp-title">—</div></div>
+        <div class="mp-artist-wrap"><div class="mp-artist" id="mp-artist">—</div></div>
+      </div>
+      <div class="mp-progress-row">
+        <div class="mp-bar-wrap" id="mp-bar-wrap">
+          <div class="mp-bar-fill" id="mp-bar-fill"></div>
+        </div>
+      </div>
+      <div class="mp-time-row">
+        <span class="mp-time" id="mp-time-cur">0:00</span>
+        <span class="mp-time" id="mp-time-dur">0:00</span>
+      </div>
+      <div class="mp-controls">
+        <button class="mp-btn" id="mp-prev" onclick="mpPrev()" title="Previous"><span>⏮</span></button>
+        <button class="mp-btn mp-btn-play" id="mp-play" onclick="mpToggle()" title="Play"><span>▶</span></button>
+        <button class="mp-btn" id="mp-next" onclick="mpNext()" title="Next"><span>⏭</span></button>
+      </div>
+    </div>
+    <div class="mp-vol-strip" id="mp-vol-strip" onclick="mpVolToggle('sidebar',event)">
+      <span>VOLUME</span>
+      <div class="mp-vol-strip-fill"></div>
+    </div>
+  </div>
+  <div class="dvd"></div>
+  <div class="panel-title">STATS</div>
+  <div class="str"><span>FLIGHTS</span><span class="v" id="sf">--</span></div>
+  <div class="str"><span>SATS</span><span class="v" id="ss2">--</span></div>
+  <div class="str"><span>CONFLICTS</span><span class="v" id="se">--</span></div>
+  <div class="dvd"></div>
+  <div class="panel-title">VIEWPORT</div>
+  <div class="str"><span>ZOOM</span><span class="v" id="vz">--</span></div>
+  <div class="str"><span>LAT</span><span class="v" id="vla">--</span></div>
+  <div class="str"><span>LNG</span><span class="v" id="vlo">--</span></div>
+</div>
+
+<div id="pr" class="panel">
+  <div class="panel-title">OSINT FEED // TELEGRAM+NEWS // <span id="feed-status" style="color:var(--warning);font-size:9px">CONNECTING</span> <div class="live-dot"></div></div>
+  <div id="of"></div>
+</div>
+
+<div id="dp"><div id="dph"><div><span class="dtype" id="dt"></span><span class="tt" id="dtl"></span></div><button id="dpc" onclick="closeD()">&times;</button></div><div id="dpb"></div></div>
+
+<div id="cto"><div id="cto-header"><div class="cto-title" id="cto-name">CONFLICT TRACKER</div><button id="cto-close" onclick="closeCTO()">CLOSE</button></div><div id="cto-body"></div></div>
+
+
+<div id="bb" class="panel">
+  <div id="mc">---.---- , ---.----</div>
+  <div style="display:flex;gap:18px"><span>UPLINK: STABLE</span><span>NODES: 847</span><span>LATENCY: <span id="ltn">23</span>ms</span></div>
+  <button class="nerv-btn" onclick="togNerv()">CTRL</button>
+</div>
+
+<div id="fz-tip"><div class="fzt-head"><div class="fzt-name" id="fzt-name"></div><div class="fzt-badge" id="fzt-badge"></div></div><div class="fzt-body"><div class="fzr"><span class="fzl">TYPE</span><span class="fzv" id="fzt-type"></span></div><div class="fzr"><span class="fzl">INTENSITY</span><span class="fzv" id="fzt-int"></span></div><div class="fzr"><span class="fzl">THREAT</span><span class="fzv" id="fzt-threat"></span></div><div class="fzr"><span class="fzl">DISPLACED</span><span class="fzv" id="fzt-disp"></span></div><div class="fzr"><span class="fzl">24H EVENTS</span><span class="fzv" id="fzt-ev"></span></div><div class="fzt-sum" id="fzt-sum"></div><div class="fzt-src"><span class="fzt-src-lbl" id="fzt-src-lbl">SRC: STATIC</span><a class="fzt-wiki" id="fzt-wiki" href="#" target="_blank" rel="noopener" style="display:none">↗ WIKIPEDIA</a></div></div></div>
+
+<div id="no">
+  <div class="nc tl">SEC-01 // MAGI SURVEILLANCE SYSTEM</div>
+  <div class="nc tr">PATTERN BLUE // ALL SYSTEMS NOMINAL</div>
+  <div class="nc bl">CASPER-3 // BALTHASAR-2 // MELCHIOR-1</div>
+  <div class="nc br">PRIBNOW LINE: STABLE</div>
+  <div class="nt">NERV</div>
+  <div class="ns">GOD'S IN HIS HEAVEN. ALL'S RIGHT WITH THE WORLD.</div>
+</div>
+
+
+<!-- Volume trays: outside sidebar/float to avoid overflow clipping -->
+<div class="mp-vol-tray" id="mp-vol-tray" style="position:fixed;display:none;">
+  <input type="range" class="mp-vol-slider" id="mp-vol-slider" min="0" max="100" value="80" orient="vertical" oninput="mpSetVol(this.value)">
+</div>
+<div class="mp-vol-tray" id="mp-vol-tray-f" style="position:fixed;display:none;">
+  <input type="range" class="mp-vol-slider" id="mp-vol-slider-f" min="0" max="100" value="80" orient="vertical" oninput="mpSetVol(this.value)">
+</div>
+
+<script src="data/data.js?v=1772211239"></script>
+<script src="js/config.js?v=1772211239"></script>
+<script src="js/util.js?v=1772211239"></script>
+
+<script src="js/wikipedia.js?v=1772211239"></script>
+<script src="js/satellites.js?v=1772211239"></script>
+<script src="js/flights.js?v=1772211239"></script>
+<script src="js/cameras.js?v=1772211239"></script>
+<script src="js/conflicts.js?v=1772211239"></script>
+<script src="js/earthquakes.js?v=1772211239"></script>
+<script src="js/nerv-ctrl.js?v=1772211239"></script>
+<script src="js/outages.js?v=1772211239"></script>
+<script src="js/osint.js?v=1772211239"></script>
+<script src="js/clicks.js?v=1772211239"></script>
+<script src="js/search.js?v=1772211239"></script>
+<script src="js/map-init.js?v=1772211239"></script>
+<script src="js/orrery.js?v=1772211239"></script>
+<script src="js/space-weather.js?v=1772211239"></script>
+<script src="js/music.js?v=1772211239"></script>
+<script src="js/app.js?v=1772211239"></script>
+</body>
+</html>
