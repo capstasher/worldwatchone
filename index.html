@@ -104,6 +104,21 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="lt on" data-l="outages" onclick="togL(this)"><div class="ind"></div>NET OUTAGES<span class="cnt" id="outc">0</span></div>
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
   <div class="dvd"></div>
+  <div class="panel-title">DISASTER PINS</div>
+  <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind" style="border-color:#ff4400"></div><span style="color:#ff8800">WILDFIRES</span><span class="cnt" id="fire-cnt">0</span></div>
+  <div class="lt on" data-l="storms" onclick="togL(this)"><div class="ind" style="border-color:#00aaff"></div><span style="color:#00ccff">STORMS</span><span class="cnt" id="storm-cnt">0</span></div>
+  <div class="lt on" data-l="volcanoes" onclick="togL(this)"><div class="ind" style="border-color:#ff3300"></div><span style="color:#ff6600">VOLCANOES</span><span class="cnt" id="volc-cnt">0</span></div>
+  <div class="lt on" data-l="tsunamis" onclick="togL(this)"><div class="ind" style="border-color:#00ddff"></div><span style="color:#00ddff">TSUNAMIS</span><span class="cnt" id="tsun-cnt">0</span></div>
+  <div class="dvd"></div>
+  <div class="panel-title">WEATHER LAYER</div>
+  <div class="wx-group">
+    <div class="wx-btn" data-wx="temp"     onclick="setWeatherLayer(activeWeatherLayer==='temp'?null:'temp')">TEMP</div>
+    <div class="wx-btn" data-wx="wind"     onclick="setWeatherLayer(activeWeatherLayer==='wind'?null:'wind')">WIND</div>
+    <div class="wx-btn" data-wx="precip"   onclick="setWeatherLayer(activeWeatherLayer==='precip'?null:'precip')">PRECIP</div>
+    <div class="wx-btn" data-wx="clouds"   onclick="setWeatherLayer(activeWeatherLayer==='clouds'?null:'clouds')">CLOUDS</div>
+    <div class="wx-btn" data-wx="pressure" onclick="setWeatherLayer(activeWeatherLayer==='pressure'?null:'pressure')">PRESSURE</div>
+  </div>
+  <div class="dvd"></div>
   <div class="panel-title">AUDIO</div>
   <div id="mp-sidebar">
     <div class="mp-inner">
@@ -189,6 +204,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="js/cameras.js?v=1772211239"></script>
 <script src="js/conflicts.js?v=1772211239"></script>
 <script src="js/earthquakes.js?v=1772211239"></script>
+<script src="js/weather.js?v=1772211239"></script>
 <script src="js/nerv-ctrl.js?v=1772211239"></script>
 <script src="js/outages.js?v=1772211239"></script>
 <script src="js/osint.js?v=1772211239"></script>
