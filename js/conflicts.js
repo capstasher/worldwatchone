@@ -123,3 +123,11 @@ ctoI=setInterval(renderCTOFeed,30000);
 map.flyTo({center:[c.lng,c.lat],zoom:6,duration:1000});}
 function closeCTO(){document.getElementById('cto').classList.remove('show');ctoRegion=null;if(ctoI){clearInterval(ctoI);ctoI=null;}}
 
+// ── Open tracker directly by region name (for sidebar shortcut buttons) ──────
+function openCTOByRegion(region){
+  // Find the highest-intensity CONF entry for this region
+  const matches = CONF.map((c,i)=>({c,i})).filter(({c})=>c.region===region);
+  if(!matches.length){ console.warn('[WWO] No CONF entry for region:', region); return; }
+  const best = matches.reduce((a,b)=> b.c.int > a.c.int ? b : a);
+  openCTO(best.i);
+}
