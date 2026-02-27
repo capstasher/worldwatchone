@@ -270,8 +270,31 @@ body.nerv #fz-tip .fzv{color:#e07020;}
   box-shadow:0 0 6px rgba(77,166,255,0.2);
 }
 
-/* Disaster pin indicator colours in layer panel */
-.lt [style*="ff4400"]{color:#ff8800;}
-.lt [style*="00aaff"]{color:#00ccff;}
-.lt [style*="ff3300"]{color:#ff6600;}
-.lt [style*="00ddff"]{color:#00ddff;}
+/* ── Disaster pin indicator dots (class-based, theme-aware) ─────────────────── */
+/* Off state: tinted border, no fill */
+.lt .ind--fire  { border-color:#ff4400; }
+.lt .ind--storm { border-color:#0088cc; }
+.lt .ind--volc  { border-color:#cc3300; }
+.lt .ind--tsun  { border-color:#00bbcc; }
+/* On state: same accent as rest of sidebar (CTRL=green, NERV=amber) */
+.lt.on .ind--fire,
+.lt.on .ind--storm,
+.lt.on .ind--volc,
+.lt.on .ind--tsun { background:var(--accent);border-color:var(--accent);box-shadow:0 0 5px var(--accent); }
+
+/* ── Active Tracker rows ─────────────────────────────────────────────────────
+   Inherit .lt layout (flex, padding, font, hover) — only add what differs.   */
+.lt.trk { cursor:pointer; padding:6px 12px; align-items:center; gap:8px; }
+/* Blinking status pip */
+.trk-pip { width:7px; height:7px; border-radius:50%; flex-shrink:0; animation:trk-blink 2.2s ease-in-out infinite; }
+@keyframes trk-blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+.trk-pip--crit { background:#ff3300; box-shadow:0 0 5px rgba(255,50,0,.5); }
+.trk-pip--elev { background:var(--warning); box-shadow:0 0 5px rgba(255,170,0,.4); }
+/* Text block */
+.trk-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.trk-name { font-family:var(--fm); font-size:11px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.trk-sub  { font-family:var(--fm); font-size:9px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.3px; }
+/* Severity badge — tiny, right-aligned */
+.trk-lv { font-family:var(--ft); font-size:7px; letter-spacing:1.2px; padding:2px 4px; border-radius:2px; flex-shrink:0; }
+.trk-lv--crit { color:#ff4400; border:1px solid rgba(255,60,0,.3); background:rgba(255,50,0,.08); }
+.trk-lv--elev { color:var(--warning); border:1px solid rgba(255,170,0,.25); background:rgba(255,170,0,.08); }
