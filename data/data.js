@@ -29,6 +29,10 @@ const CONF=[
   {name:"Northern Mozambique",lat:-12.5,lng:40.0,int:0.45,type:"INSURGENCY",region:"Mozambique",events:67,disp:"800K"},
   {name:"Port-au-Prince, Haiti",lat:18.97,lng:-72.34,int:0.5,type:"CIVIL UNREST",region:"Haiti",events:78,disp:"360K"},
   {name:"NW Pakistan / Balochistan",lat:34.0,lng:71.5,int:0.4,type:"INSURGENCY",region:"Pakistan",events:56,disp:"100K"},
+  {name:"Pakistan–Afghanistan Border (Durand Line)",lat:33.8,lng:70.2,int:0.78,type:"ARMED CONFLICT",region:"Pak-Afghan",events:312,disp:"500K"},
+  {name:"Khyber Pakhtunkhwa / TTP Insurgency",lat:34.1,lng:71.8,int:0.72,type:"ARMED CONFLICT",region:"Pak-Afghan",events:247,disp:"300K"},
+  {name:"Kunar / Nangarhar (Afghan side)",lat:34.5,lng:70.5,int:0.65,type:"CROSS-BORDER FIRE",region:"Pak-Afghan",events:189,disp:"200K"},
+  {name:"Balochistan – BLA / TTP Operations",lat:30.2,lng:66.5,int:0.58,type:"INSURGENCY",region:"Pak-Afghan",events:134,disp:"150K"},
   {name:"Taiwan Strait",lat:24.0,lng:119.5,int:0.35,type:"TENSION",region:"Taiwan Strait",events:12,disp:"0"},
   {name:"South China Sea",lat:12.0,lng:114.0,int:0.25,type:"TENSION",region:"SCS",events:8,disp:"0"},
   {name:"Northern Ethiopia / Amhara",lat:11.5,lng:39.5,int:0.45,type:"INSURGENCY",region:"Ethiopia",events:87,disp:"1.2M"},
@@ -2268,5 +2272,14 @@ const FRONTLINES={type:"FeatureCollection",features:[
     [-105.5,21.8],[-103.0,22.0],[-101.0,21.5],[-100.5,20.8],[-100.8,19.5],
     [-101.5,18.8],[-102.8,18.6],[-104.2,19.0],[-105.3,19.8],[-105.7,20.8],[-105.5,21.8]
   ]]}},
+  {type:"Feature",properties:{name:"Pakistan–Afghanistan Active Conflict Zone",zone:"Pak-Afghan",int:0.78,type:"ARMED CONFLICT",disp:"500K+",events:312,
+    wikiKey:"Tehrik-i-Taliban_Pakistan",
+    wikiTitle:"Pakistan–Afghanistan conflict (2024–present)",
+    summary:"Escalating conflict along the Durand Line. TTP (Tehrik-i-Taliban Pakistan) operating from Afghan territory. Pakistani military conducting cross-border airstrikes into eastern Afghanistan. Afghan Taliban refusing to expel TTP. Border crossings repeatedly closed. Thousands displaced in KPK and Balochistan."},
+  geometry:{type:"Polygon",coordinates:[[
+    [69.5,37.2],[71.0,36.8],[72.5,36.5],[74.0,36.9],[75.2,36.3],[74.8,35.0],
+    [72.5,34.8],[71.5,34.3],[70.5,33.5],[69.2,33.0],[68.0,32.8],[67.0,31.5],
+    [66.0,30.5],[62.5,29.5],[62.0,31.5],[63.5,33.5],[65.0,35.0],[66.5,36.5],
+    [67.5,37.0],[69.5,37.2]
+  ]]}},
 ]};
-
