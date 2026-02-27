@@ -6,7 +6,7 @@ map.on('style.load',()=>{try{map.setProjection({type:'globe'});}catch(e){try{map
 
 // These are window-globals so all modules can access them
 var nervMode=false;
-var layerVis={flights:true,sats:true,conf:true,cams:true,osint:true,fronts:true,outages:true,quakes:true};
+var layerVis={flights:true,sats:true,conf:true,cams:true,osint:true,fronts:true,outages:true,quakes:true,fires:true,storms:true,volcanoes:true,tsunamis:true};
 var baseLayerIds=[];// will store carto's own layer IDs — global for nerv-ctrl.js
 
 
@@ -82,8 +82,14 @@ map.on('load',()=>{
   // Initialize earthquake tracker
   initEarthquakes(map);
 
+  // Initialize weather tile layers + disaster pins
+  initWeather(map);
+
   // Initialize click handlers and flight filter
   initClicks(map);
+
+  // Initialize weather click handlers (after map layers exist)
+  initWeatherClicks(map);
 
   // Coordinate display (map must exist)
   map.on('move',()=>{const c=map.getCenter();document.getElementById('vz').textContent=map.getZoom().toFixed(2);document.getElementById('vla').textContent=c.lat.toFixed(4);document.getElementById('vlo').textContent=c.lng.toFixed(4);});
@@ -162,4 +168,3 @@ map.on('load',()=>{
 // ====== LAYER TOGGLES ======
 var lMap={flights:['fl-lyr','fl-glow','fl-emerg'],sats:['sat-lyr'],conf:['cheat','ccore'],cams:['cam-dot','cam-glow'],fronts:['fronts-fill','fronts-line','fronts-border'],outages:['outage-glow','outage-dot','outage-label'],quakes:['eq-ring-0','eq-ring-1','eq-ring-2','eq-core','eq-label']};
 function togL(el){const l=el.dataset.l;layerVis[l]=!layerVis[l];el.classList.toggle('on');if(lMap[l])lMap[l].forEach(id=>{try{map.setLayoutProperty(id,'visibility',layerVis[l]?'visible':'none');}catch(e){}});if(l==='osint')document.getElementById('pr').style.display=layerVis.osint?'flex':'none';}
-
