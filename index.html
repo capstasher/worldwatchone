@@ -105,44 +105,16 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
   <div class="dvd"></div>
   <div class="panel-title">ACTIVE TRACKERS</div>
-  <div class="tracker-zone" onclick="openCTOByRegion('Pak-Afghan')" title="Open dedicated Pakistan-Afghanistan conflict tracker">
-    <div class="tz-dot" style="background:#ff4400;box-shadow:0 0 6px #ff4400aa"></div>
-    <div class="tz-info">
-      <div class="tz-name">PAK–AFGHAN WAR</div>
-      <div class="tz-sub">TTP · Durand Line · Cross-border ops</div>
-    </div>
-    <div class="tz-badge tz-critical">CRITICAL</div>
-  </div>
-  <div class="tracker-zone" onclick="openCTOByRegion('Ukraine')" title="Open Ukraine tracker">
-    <div class="tz-dot" style="background:#ff2200;box-shadow:0 0 6px #ff2200aa"></div>
-    <div class="tz-info">
-      <div class="tz-name">UKRAINE FRONT</div>
-      <div class="tz-sub">Donbas · Kursk · Zaporizhzhia</div>
-    </div>
-    <div class="tz-badge tz-critical">CRITICAL</div>
-  </div>
-  <div class="tracker-zone" onclick="openCTOByRegion('Gaza')" title="Open Gaza tracker">
-    <div class="tz-dot" style="background:#ff6600;box-shadow:0 0 6px #ff6600aa"></div>
-    <div class="tz-info">
-      <div class="tz-name">GAZA / WEST BANK</div>
-      <div class="tz-sub">IDF ops · Ceasefire status</div>
-    </div>
-    <div class="tz-badge tz-critical">CRITICAL</div>
-  </div>
-  <div class="tracker-zone" onclick="openCTOByRegion('Sudan')" title="Open Sudan tracker">
-    <div class="tz-dot" style="background:#ffaa00;box-shadow:0 0 6px #ffaa0088"></div>
-    <div class="tz-info">
-      <div class="tz-name">SUDAN / DARFUR</div>
-      <div class="tz-sub">SAF vs RSF · El Fasher siege</div>
-    </div>
-    <div class="tz-badge tz-elevated">ELEVATED</div>
-  </div>
+  <div class="lt trk" onclick="openCTOByRegion('Pak-Afghan')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">PAK–AFGHAN WAR</span><span class="trk-sub">TTP · Durand Line · cross-border ops</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+  <div class="lt trk" onclick="openCTOByRegion('Ukraine')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">UKRAINE FRONT</span><span class="trk-sub">Donbas · Kursk · Zaporizhzhia</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+  <div class="lt trk" onclick="openCTOByRegion('Gaza')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">GAZA / WEST BANK</span><span class="trk-sub">IDF ops · ceasefire status</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+  <div class="lt trk" onclick="openCTOByRegion('Sudan')"><div class="trk-pip trk-pip--elev"></div><div class="trk-body"><span class="trk-name">SUDAN / DARFUR</span><span class="trk-sub">SAF vs RSF · El Fasher siege</span></div><span class="trk-lv trk-lv--elev">ELEVATED</span></div>
   <div class="dvd"></div>
   <div class="panel-title">DISASTER PINS</div>
-  <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind" style="border-color:#ff4400"></div><span style="color:#ff8800">WILDFIRES</span><span class="cnt" id="fire-cnt">0</span></div>
-  <div class="lt on" data-l="storms" onclick="togL(this)"><div class="ind" style="border-color:#00aaff"></div><span style="color:#00ccff">STORMS</span><span class="cnt" id="storm-cnt">0</span></div>
-  <div class="lt on" data-l="volcanoes" onclick="togL(this)"><div class="ind" style="border-color:#ff3300"></div><span style="color:#ff6600">VOLCANOES</span><span class="cnt" id="volc-cnt">0</span></div>
-  <div class="lt on" data-l="tsunamis" onclick="togL(this)"><div class="ind" style="border-color:#00ddff"></div><span style="color:#00ddff">TSUNAMIS</span><span class="cnt" id="tsun-cnt">0</span></div>
+  <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind ind--fire"></div>WILDFIRES<span class="cnt" id="fire-cnt">0</span></div>
+  <div class="lt on" data-l="storms" onclick="togL(this)"><div class="ind ind--storm"></div>STORMS<span class="cnt" id="storm-cnt">0</span></div>
+  <div class="lt on" data-l="volcanoes" onclick="togL(this)"><div class="ind ind--volc"></div>VOLCANOES<span class="cnt" id="volc-cnt">0</span></div>
+  <div class="lt on" data-l="tsunamis" onclick="togL(this)"><div class="ind ind--tsun"></div>TSUNAMIS<span class="cnt" id="tsun-cnt">0</span></div>
   <div class="dvd"></div>
   <div class="panel-title">WEATHER LAYER</div>
   <div class="wx-group">
@@ -239,6 +211,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="js/conflicts.js?v=1772211239"></script>
 <script src="js/earthquakes.js?v=1772211239"></script>
 <script src="js/weather.js?v=1772211239"></script>
+<script src="js/outages.js?v=1772211239"></script>
 <script src="js/nerv-ctrl.js?v=1772211239"></script>
 <script src="js/outages.js?v=1772211239"></script>
 <script src="js/osint.js?v=1772211239"></script>
