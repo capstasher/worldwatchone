@@ -3,7 +3,7 @@
 // Disaster pins: NASA FIRMS (wildfires), NOAA NHC (storms), GDACS (volcanoes/floods/tsunamis)
 
 const OWM_KEY = '672decb9af50b0fd34671e756d149224';
-const FIRMS_KEY = '81edd9ee619e137a982b06fa8ec716f8';
+// FIRMS_KEY is stored as a Cloudflare Worker secret — never exposed client-side
 
 // OWM tile layer IDs
 const OWM_LAYERS = {
@@ -224,9 +224,9 @@ function setWeatherLayer(key) {
 // ── NASA FIRMS — wildfire detections ─────────────────────────────────────────
 async function fetchFIRMS() {
   try {
-    // VIIRS S-NPP NRT, world, 1 day
-    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${FIRMS_KEY}/VIIRS_SNPP_NRT/world/1`;
-    const r = await fetch(PROXY(url), { signal: AbortSignal.timeout(20000) });
+    // Key is stored server-side as a Worker secret — routed via /api/firms
+    const url = `${PROXY_BASE}/api/firms?source=VIIRS_SNPP_NRT&days=1&area=world`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw new Error('FIRMS ' + r.status);
     const csv = await r.text();
     const features = parseFIRMScsv(csv);
