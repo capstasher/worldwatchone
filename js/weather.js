@@ -7,11 +7,11 @@ const OWM_KEY = '672decb9af50b0fd34671e756d149224';
 
 // OWM tile layer IDs
 const OWM_LAYERS = {
-  temp:    'temp_new',          // Temperature
-  wind:    'wind_new',          // Wind speed
-  precip:  'precipitation_new', // Precipitation intensity
-  clouds:  'clouds_new',        // Cloud cover
-  pressure:'pressure_new',      // Sea-level pressure
+  temp:    'temp_new',
+  wind:    'wind_new',
+  precip:  'precipitation_new',
+  clouds:  'clouds_new',
+  pressure:'pressure_new',
 };
 
 var activeWeatherLayer = null; // null = off
@@ -21,168 +21,224 @@ var weatherLayerVis = true;    // master toggle
 function initWeather(map) {
   console.log('[WWO] Weather: initializing tile layers + disaster pins');
 
-  // One raster source per OWM layer type (swap tile URL to change view)
-  Object.keys(OWM_LAYERS).forEach(key => {
-    const code = OWM_LAYERS[key];
-    map.addSource('wx-' + key, {
-      type: 'raster',
-      tiles: [`https://tile.openweathermap.org/map/${code}/{z}/{x}/{y}.png?appid=${OWM_KEY}`],
-      tileSize: 256,
-      attribution: '© OpenWeatherMap'
-    });
-    map.addLayer({
-      id: 'wx-' + key,
-      type: 'raster',
-      source: 'wx-' + key,
-      paint: { 'raster-opacity': 0.72 },
-      layout: { visibility: 'none' }
-    });
-  });
+  // OWM raster layers are registered lazily on first activation (avoids 400s for unused layers)
+  // See setWeatherLayer() below — sources/layers added on demand.
 
-  // ── Disaster pin sources ──────────────────────────────────────────────────
-  // WILDFIRES (NASA FIRMS — VIIRS S-NPP NRT)
-  map.addSource('fires', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  map.addLayer({
-    id: 'fire-glow', type: 'circle', source: 'fires',
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['get', 'frp'], 0, 8, 50, 18, 200, 32],
-      'circle-color': '#ff4400',
-      'circle-opacity': 0.18,
-      'circle-blur': 1
-    }
-  });
-  map.addLayer({
-    id: 'fire-dot', type: 'circle', source: 'fires',
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['get', 'frp'], 0, 3, 50, 6, 200, 10],
-      'circle-color': ['interpolate', ['linear'], ['get', 'frp'], 0, '#ff8800', 50, '#ff4400', 200, '#ff0000'],
-      'circle-opacity': 0.9,
-      'circle-stroke-width': 1,
-      'circle-stroke-color': '#ff6600',
-      'circle-stroke-opacity': 0.4
-    }
-  });
+  // ── SVG disaster icons (same mkImg pattern as planes/sats) ──────────────────
+  // Fire icon — flame shape
+  map.addImage('fire-icon', mkImg((x,s) => {
+    x.translate(s/2, s/2);
+    // Outer glow
+    x.globalAlpha = 0.25;
+    x.fillStyle = '#ff4400';
+    x.beginPath(); x.arc(0, 2, 11, 0, Math.PI*2); x.fill();
+    x.globalAlpha = 1;
+    // Flame body
+    x.fillStyle = '#ff6600';
+    x.beginPath();
+    x.moveTo(0, -13);
+    x.bezierCurveTo(5, -8, 9, -3, 7, 4);
+    x.bezierCurveTo(6, 8, 3, 11, 0, 13);
+    x.bezierCurveTo(-3, 11, -6, 8, -7, 4);
+    x.bezierCurveTo(-9, -3, -5, -8, 0, -13);
+    x.fill();
+    // Inner hot core
+    x.fillStyle = '#ffdd00';
+    x.beginPath();
+    x.moveTo(0, -5);
+    x.bezierCurveTo(3, -1, 4, 3, 2, 7);
+    x.bezierCurveTo(1, 10, -1, 10, -2, 7);
+    x.bezierCurveTo(-4, 3, -3, -1, 0, -5);
+    x.fill();
+  }, 28));
 
-  // STORMS (NHC active tropical cyclones)
-  map.addSource('storms', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  // Storm center
-  map.addLayer({
-    id: 'storm-glow', type: 'circle', source: 'storms',
-    filter: ['==', ['get', 'type'], 'center'],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['get', 'wind'], 0, 16, 64, 28, 130, 44],
-      'circle-color': ['interpolate', ['linear'], ['get', 'cat'], 0, '#00aaff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
-      'circle-opacity': 0.15,
-      'circle-blur': 1
+  // Volcano icon — mountain with eruption plume
+  map.addImage('volc-icon', mkImg((x,s) => {
+    x.translate(s/2, s/2);
+    // Glow
+    x.globalAlpha = 0.2;
+    x.fillStyle = '#ff3300';
+    x.beginPath(); x.arc(0, 3, 12, 0, Math.PI*2); x.fill();
+    x.globalAlpha = 1;
+    // Mountain body
+    x.fillStyle = '#cc4400';
+    x.beginPath();
+    x.moveTo(-14, 13);
+    x.lineTo(-3, -2);
+    x.lineTo(0, -6);
+    x.lineTo(3, -2);
+    x.lineTo(14, 13);
+    x.closePath(); x.fill();
+    // Snow/crater cap
+    x.fillStyle = '#ff8844';
+    x.beginPath();
+    x.moveTo(-4, -1);
+    x.lineTo(0, -8);
+    x.lineTo(4, -1);
+    x.closePath(); x.fill();
+    // Eruption plume
+    x.fillStyle = '#ff6600';
+    x.globalAlpha = 0.85;
+    x.beginPath(); x.arc(-2, -11, 3.5, 0, Math.PI*2); x.fill();
+    x.beginPath(); x.arc(2, -13, 2.5, 0, Math.PI*2); x.fill();
+    x.beginPath(); x.arc(0, -15, 2, 0, Math.PI*2); x.fill();
+    x.globalAlpha = 1;
+  }, 30));
+
+  // Storm icon — spiral/cyclone
+  map.addImage('storm-icon', mkImg((x,s) => {
+    x.translate(s/2, s/2);
+    // Glow
+    x.globalAlpha = 0.18;
+    x.fillStyle = '#00aaff';
+    x.beginPath(); x.arc(0, 0, 13, 0, Math.PI*2); x.fill();
+    x.globalAlpha = 1;
+    // Spiral arms
+    x.strokeStyle = '#00ccff';
+    x.lineWidth = 2.2;
+    x.lineCap = 'round';
+    for(let arm = 0; arm < 3; arm++) {
+      x.save();
+      x.rotate(arm * Math.PI * 2/3);
+      x.beginPath();
+      for(let t = 0; t <= 1; t += 0.05) {
+        const r = 2 + t * 9;
+        const a = t * Math.PI * 1.5;
+        const px = r * Math.cos(a);
+        const py = r * Math.sin(a);
+        t === 0 ? x.moveTo(px, py) : x.lineTo(px, py);
+      }
+      x.globalAlpha = 0.7 + 0.3 * (1 - arm/3);
+      x.stroke();
+      x.restore();
     }
-  });
-  map.addLayer({
-    id: 'storm-dot', type: 'circle', source: 'storms',
-    filter: ['==', ['get', 'type'], 'center'],
-    paint: {
-      'circle-radius': 7,
-      'circle-color': ['interpolate', ['linear'], ['get', 'cat'], 0, '#00aaff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
-      'circle-opacity': 0.95,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-opacity': 0.3
-    }
-  });
-  // Storm track line
-  map.addLayer({
-    id: 'storm-track', type: 'line', source: 'storms',
+    x.globalAlpha = 1;
+    // Eye
+    x.fillStyle = '#004466';
+    x.beginPath(); x.arc(0, 0, 2.5, 0, Math.PI*2); x.fill();
+    x.strokeStyle = '#00ccff';
+    x.lineWidth = 1;
+    x.beginPath(); x.arc(0, 0, 2.5, 0, Math.PI*2); x.stroke();
+  }, 30));
+
+  // Tsunami icon — wave
+  map.addImage('tsun-icon', mkImg((x,s) => {
+    x.translate(s/2, s/2);
+    // Glow
+    x.globalAlpha = 0.2;
+    x.fillStyle = '#00ddff';
+    x.beginPath(); x.arc(0, 2, 12, 0, Math.PI*2); x.fill();
+    x.globalAlpha = 1;
+    x.strokeStyle = '#00ddff';
+    x.lineWidth = 2.5;
+    x.lineCap = 'round';
+    // Wave 1 (back)
+    x.globalAlpha = 0.45;
+    x.beginPath();
+    x.moveTo(-12, -2);
+    x.bezierCurveTo(-8, -10, -2, -10, 0, -4);
+    x.bezierCurveTo(2, 2, 6, 2, 12, -4);
+    x.stroke();
+    // Wave 2 (front)
+    x.globalAlpha = 1;
+    x.lineWidth = 3;
+    x.beginPath();
+    x.moveTo(-13, 4);
+    x.bezierCurveTo(-9, -5, -3, -7, 0, -1);
+    x.bezierCurveTo(3, 5, 8, 5, 13, -1);
+    x.stroke();
+    // Crest curl
+    x.fillStyle = '#00ddff';
+    x.globalAlpha = 0.7;
+    x.beginPath(); x.arc(-13, 4, 2.5, 0, Math.PI*2); x.fill();
+  }, 30));
+
+  // ── Disaster pin GeoJSON sources ─────────────────────────────────────────
+  map.addSource('fires',     { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addSource('storms',    { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addSource('volcanoes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addSource('tsunamis',  { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+
+  // FIRES — glow halo + icon
+  map.addLayer({ id: 'fire-glow', type: 'circle', source: 'fires', paint: {
+    'circle-radius': ['interpolate', ['linear'], ['get', 'frp'], 0, 10, 50, 20, 200, 36],
+    'circle-color': '#ff4400', 'circle-opacity': 0.12, 'circle-blur': 1
+  }});
+  map.addLayer({ id: 'fire-dot', type: 'symbol', source: 'fires', layout: {
+    'icon-image': 'fire-icon',
+    'icon-size': ['interpolate', ['linear'], ['get', 'frp'], 0, 0.55, 50, 0.8, 200, 1.1],
+    'icon-allow-overlap': true, 'icon-ignore-placement': false
+  }});
+
+  // VOLCANOES — glow halo + icon + label
+  map.addLayer({ id: 'volc-glow', type: 'circle', source: 'volcanoes', paint: {
+    'circle-radius': ['interpolate', ['linear'], ['get', 'alert'], 0, 14, 3, 28],
+    'circle-color': '#ff3300', 'circle-opacity': 0.15, 'circle-blur': 1
+  }});
+  map.addLayer({ id: 'volc-dot', type: 'symbol', source: 'volcanoes', layout: {
+    'icon-image': 'volc-icon',
+    'icon-size': ['interpolate', ['linear'], ['get', 'alert'], 0, 0.8, 3, 1.1],
+    'text-field': ['get', 'name'],
+    'text-size': 9,
+    'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+    'text-offset': [0, 1.6],
+    'text-allow-overlap': false,
+    'icon-allow-overlap': true
+  }, paint: {
+    'text-color': '#ff8800',
+    'text-halo-color': 'rgba(0,0,0,0.9)',
+    'text-halo-width': 1.5
+  }});
+
+  // STORMS — track line + glow + icon + label
+  map.addLayer({ id: 'storm-track', type: 'line', source: 'storms',
     filter: ['==', ['get', 'type'], 'track'],
+    paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [4,2], 'line-opacity': 0.5 }
+  });
+  map.addLayer({ id: 'storm-glow', type: 'circle', source: 'storms',
+    filter: ['==', ['get', 'type'], 'center'],
     paint: {
-      'line-color': ['get', 'color'],
-      'line-width': 1.5,
-      'line-dasharray': [4, 2],
-      'line-opacity': 0.6
+      'circle-radius': ['interpolate', ['linear'], ['get', 'wind'], 0, 18, 64, 32, 130, 48],
+      'circle-color': ['interpolate', ['linear'], ['get', 'cat'], 0, '#00aaff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
+      'circle-opacity': 0.12, 'circle-blur': 1
     }
   });
-  // Storm label
-  map.addLayer({
-    id: 'storm-label', type: 'symbol', source: 'storms',
+  map.addLayer({ id: 'storm-dot', type: 'symbol', source: 'storms',
     filter: ['==', ['get', 'type'], 'center'],
     layout: {
+      'icon-image': 'storm-icon',
+      'icon-size': ['interpolate', ['linear'], ['get', 'wind'], 0, 0.75, 64, 0.95, 130, 1.2],
       'text-field': ['get', 'name'],
       'text-size': 10,
       'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-      'text-offset': [0, 1.6],
-      'text-allow-overlap': false
-    },
-    paint: {
+      'text-offset': [0, 1.7],
+      'text-allow-overlap': false,
+      'icon-allow-overlap': true
+    }, paint: {
       'text-color': '#00ccff',
       'text-halo-color': 'rgba(0,0,0,0.9)',
       'text-halo-width': 1.5
     }
   });
 
-  // VOLCANOES (GDACS)
-  map.addSource('volcanoes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  map.addLayer({
-    id: 'volc-glow', type: 'circle', source: 'volcanoes',
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['get', 'alert'], 0, 12, 3, 26],
-      'circle-color': '#ff3300',
-      'circle-opacity': 0.2,
-      'circle-blur': 1
-    }
-  });
-  map.addLayer({
-    id: 'volc-dot', type: 'circle', source: 'volcanoes',
-    paint: {
-      'circle-radius': 5,
-      'circle-color': ['interpolate', ['linear'], ['get', 'alert'], 0, '#ff8800', 2, '#ff3300', 3, '#dd0000'],
-      'circle-opacity': 0.95,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#ffaa00',
-      'circle-stroke-opacity': 0.5
-    }
-  });
-  map.addLayer({
-    id: 'volc-label', type: 'symbol', source: 'volcanoes',
-    layout: {
-      'text-field': ['get', 'name'],
-      'text-size': 9,
-      'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-      'text-offset': [0, 1.4],
-      'text-allow-overlap': false
-    },
-    paint: {
-      'text-color': '#ff8800',
-      'text-halo-color': 'rgba(0,0,0,0.9)',
-      'text-halo-width': 1.5
-    }
-  });
-
-  // TSUNAMIS (PTWC warnings)
-  map.addSource('tsunamis', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  map.addLayer({
-    id: 'tsunami-ring', type: 'circle', source: 'tsunamis',
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 18, 5, 36],
-      'circle-color': 'transparent',
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#00ddff',
-      'circle-stroke-opacity': 0.7
-    }
-  });
-  map.addLayer({
-    id: 'tsunami-dot', type: 'circle', source: 'tsunamis',
-    paint: {
-      'circle-radius': 5,
-      'circle-color': '#00ddff',
-      'circle-opacity': 0.9,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-opacity': 0.3
-    }
-  });
+  // TSUNAMIS — pulsing ring + icon
+  map.addLayer({ id: 'tsunami-ring', type: 'circle', source: 'tsunamis', paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 20, 5, 40],
+    'circle-color': 'transparent',
+    'circle-stroke-width': 2,
+    'circle-stroke-color': '#00ddff',
+    'circle-stroke-opacity': 0.6
+  }});
+  map.addLayer({ id: 'tsunami-dot', type: 'symbol', source: 'tsunamis', layout: {
+    'icon-image': 'tsun-icon',
+    'icon-size': 0.9,
+    'icon-allow-overlap': true
+  }});
 
   // Add to global layer map so togL() works
   lMap.fires    = ['fire-glow', 'fire-dot'];
-  lMap.storms   = ['storm-glow', 'storm-dot', 'storm-track', 'storm-label'];
-  lMap.volcanoes= ['volc-glow', 'volc-dot', 'volc-label'];
+  lMap.storms   = ['storm-glow', 'storm-dot', 'storm-track'];
+  lMap.volcanoes= ['volc-glow', 'volc-dot'];
   lMap.tsunamis = ['tsunami-ring', 'tsunami-dot'];
 
   layerVis.fires    = true;
@@ -203,16 +259,53 @@ function initWeather(map) {
 }
 
 // ── Weather tile toggle ───────────────────────────────────────────────────────
+// Lazy: only register a source/layer when the user first activates it
+const wxLayerLoaded = {};
+
 function setWeatherLayer(key) {
-  // key = null (off) or one of OWM_LAYERS keys
+  // Hide all active wx layers
   Object.keys(OWM_LAYERS).forEach(k => {
-    try { map.setLayoutProperty('wx-' + k, 'visibility', 'none'); } catch(e) {}
+    if (wxLayerLoaded[k]) {
+      try { map.setLayoutProperty('wx-' + k, 'visibility', 'none'); } catch(e) {}
+    }
   });
+
+  // Toggle off if clicking the active layer
+  if (activeWeatherLayer === key) {
+    activeWeatherLayer = null;
+    document.querySelectorAll('.wx-btn').forEach(b => b.classList.remove('on'));
+    return;
+  }
 
   activeWeatherLayer = key;
 
-  if (key && weatherLayerVis) {
-    try { map.setLayoutProperty('wx-' + key, 'visibility', 'visible'); } catch(e) {}
+  if (key) {
+    // Lazy-register source + layer on first use
+    if (!wxLayerLoaded[key]) {
+      const code = OWM_LAYERS[key];
+      try {
+        map.addSource('wx-' + key, {
+          type: 'raster',
+          tiles: [`https://tile.openweathermap.org/map/${code}/{z}/{x}/{y}.png?appid=${OWM_KEY}`],
+          tileSize: 256,
+          attribution: '© OpenWeatherMap'
+        });
+        map.addLayer({
+          id: 'wx-' + key,
+          type: 'raster',
+          source: 'wx-' + key,
+          paint: { 'raster-opacity': 0.68 }
+        });
+        wxLayerLoaded[key] = true;
+        console.log('[WWO] Weather layer registered: ' + key + ' (' + code + ')');
+      } catch(e) {
+        console.warn('[WWO] Weather layer error:', e.message);
+        activeWeatherLayer = null;
+        return;
+      }
+    } else {
+      try { map.setLayoutProperty('wx-' + key, 'visibility', 'visible'); } catch(e) {}
+    }
   }
 
   // Update UI buttons
