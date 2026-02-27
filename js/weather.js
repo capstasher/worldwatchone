@@ -7,11 +7,11 @@ const OWM_KEY = '672decb9af50b0fd34671e756d149224';
 
 // OWM tile layer IDs
 const OWM_LAYERS = {
-  temp:   'TA2',       // Temperature at 2m
-  wind:   'WND',       // Wind speed
-  precip: 'PA0',       // Precipitation
-  clouds: 'CL',        // Cloud cover
-  pressure:'APM',      // Pressure
+  temp:    'temp_new',          // Temperature
+  wind:    'wind_new',          // Wind speed
+  precip:  'precipitation_new', // Precipitation intensity
+  clouds:  'clouds_new',        // Cloud cover
+  pressure:'pressure_new',      // Sea-level pressure
 };
 
 var activeWeatherLayer = null; // null = off
