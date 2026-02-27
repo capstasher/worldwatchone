@@ -99,10 +99,44 @@ window.addEventListener('unhandledrejection',function(e){
     <label style="color:#00ff88;cursor:pointer;font-size:9px"><input type="checkbox" id="cam-global" checked onchange="filterCams()" style="margin-right:2px;accent-color:#00ff88">GLOBAL</label>
     <label style="color:#ffaa00;cursor:pointer;font-size:9px"><input type="checkbox" id="cam-uk" checked onchange="filterCams()" style="margin-right:2px;accent-color:#ffaa00">UK TRAFFIC</label>
   </div>
-  <div class="lt on" data-l="fronts" onclick="togL(this)"><div class="ind"></div>FRONTLINES<span class="cnt" id="flc">12</span></div>
+  <div class="lt on" data-l="fronts" onclick="togL(this)"><div class="ind"></div>FRONTLINES<span class="cnt" id="flc">14</span></div>
   <div class="lt on" data-l="quakes" onclick="togL(this)"><div class="ind"></div>EARTHQUAKES<span class="cnt" id="eqc">0</span></div>
   <div class="lt on" data-l="outages" onclick="togL(this)"><div class="ind"></div>NET OUTAGES<span class="cnt" id="outc">0</span></div>
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
+  <div class="dvd"></div>
+  <div class="panel-title">ACTIVE TRACKERS</div>
+  <div class="tracker-zone" onclick="openCTOByRegion('Pak-Afghan')" title="Open dedicated Pakistan-Afghanistan conflict tracker">
+    <div class="tz-dot" style="background:#ff4400;box-shadow:0 0 6px #ff4400aa"></div>
+    <div class="tz-info">
+      <div class="tz-name">PAK–AFGHAN WAR</div>
+      <div class="tz-sub">TTP · Durand Line · Cross-border ops</div>
+    </div>
+    <div class="tz-badge tz-critical">CRITICAL</div>
+  </div>
+  <div class="tracker-zone" onclick="openCTOByRegion('Ukraine')" title="Open Ukraine tracker">
+    <div class="tz-dot" style="background:#ff2200;box-shadow:0 0 6px #ff2200aa"></div>
+    <div class="tz-info">
+      <div class="tz-name">UKRAINE FRONT</div>
+      <div class="tz-sub">Donbas · Kursk · Zaporizhzhia</div>
+    </div>
+    <div class="tz-badge tz-critical">CRITICAL</div>
+  </div>
+  <div class="tracker-zone" onclick="openCTOByRegion('Gaza')" title="Open Gaza tracker">
+    <div class="tz-dot" style="background:#ff6600;box-shadow:0 0 6px #ff6600aa"></div>
+    <div class="tz-info">
+      <div class="tz-name">GAZA / WEST BANK</div>
+      <div class="tz-sub">IDF ops · Ceasefire status</div>
+    </div>
+    <div class="tz-badge tz-critical">CRITICAL</div>
+  </div>
+  <div class="tracker-zone" onclick="openCTOByRegion('Sudan')" title="Open Sudan tracker">
+    <div class="tz-dot" style="background:#ffaa00;box-shadow:0 0 6px #ffaa0088"></div>
+    <div class="tz-info">
+      <div class="tz-name">SUDAN / DARFUR</div>
+      <div class="tz-sub">SAF vs RSF · El Fasher siege</div>
+    </div>
+    <div class="tz-badge tz-elevated">ELEVATED</div>
+  </div>
   <div class="dvd"></div>
   <div class="panel-title">DISASTER PINS</div>
   <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind" style="border-color:#ff4400"></div><span style="color:#ff8800">WILDFIRES</span><span class="cnt" id="fire-cnt">0</span></div>
