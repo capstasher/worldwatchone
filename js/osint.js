@@ -5,26 +5,44 @@ const GN_PARAMS='&hl=en-US&gl=US&ceid=US:en';
 
 // ── Google News queries ──────────────────────────────────────────────────────
 const FEED_QUERIES=[
-  // Active conflict zones
-  {q:'Ukraine+war+frontline',        zone:'Ukraine',   ty:'al'},
-  {q:'Gaza+war+ceasefire',           zone:'Gaza',      ty:'al'},
-  {q:'Sudan+civil+war+RSF+SAF',      zone:'Sudan',     ty:'al'},
-  {q:'DRC+M23+Goma+Congo',           zone:'DRC',       ty:'al'},
-  {q:'Myanmar+civil+war+junta',      zone:'Myanmar',   ty:'wa'},
-  {q:'Yemen+Houthi+attack+Red+Sea',  zone:'Yemen',     ty:'wa'},
-  {q:'Lebanon+Hezbollah+IDF',        zone:'Lebanon',   ty:'wa'},
-  {q:'West+Bank+IDF+Jenin+Tulkarm',  zone:'West Bank', ty:'wa'},
-  {q:'Burkina+Faso+JNIM+insurgency', zone:'Sahel',     ty:'in'},
-  {q:'Kursk+offensive+Ukraine+Russia',zone:'Kursk',    ty:'al'},
-  // Mexico — CJNG crisis
-  {q:'Mexico+CJNG+cartel+El+Mencho',  zone:'Mexico',   ty:'al'},
-  {q:'Jalisco+cartel+Guadalajara+violence',zone:'Mexico',ty:'al'},
-  // Iran — dedicated queries
-  {q:'Iran+IRGC+military+attack',    zone:'Iran',      ty:'al'},
-  {q:'Iran+nuclear+enrichment+IAEA', zone:'Iran',      ty:'wa'},
-  {q:'Iran+Strait+Hormuz+naval',     zone:'Iran',      ty:'wa'},
-  {q:'Iran+sanctions+oil+tanker',    zone:'Iran',      ty:'in'},
-  {q:'Iran+proxy+Iraq+Syria+militia',zone:'Iran',      ty:'wa'},
+  // ── ACTIVE CONFLICTS ──
+  {q:'Ukraine+war+frontline',          zone:'Ukraine',   ty:'al'},
+  {q:'Gaza+war+ceasefire',             zone:'Gaza',      ty:'al'},
+  {q:'Sudan+civil+war+RSF+SAF',        zone:'Sudan',     ty:'al'},
+  {q:'DRC+M23+Goma+Congo',             zone:'DRC',       ty:'al'},
+  {q:'Myanmar+civil+war+junta',        zone:'Myanmar',   ty:'wa'},
+  {q:'Yemen+Houthi+attack+Red+Sea',    zone:'Yemen',     ty:'wa'},
+  {q:'Lebanon+Hezbollah+IDF',          zone:'Lebanon',   ty:'wa'},
+  {q:'West+Bank+IDF+Jenin+Tulkarm',    zone:'West Bank', ty:'wa'},
+  {q:'Burkina+Faso+JNIM+insurgency',   zone:'Sahel',     ty:'in'},
+  {q:'Mexico+cartel+violence+attack',  zone:'Mexico',    ty:'al'},
+  {q:'Iran+IRGC+military+nuclear',     zone:'Iran',      ty:'wa'},
+  {q:'Taiwan+Strait+China+military',   zone:'Taiwan',    ty:'wa'},
+  {q:'North+Korea+missile+launch',     zone:'DPRK',      ty:'al'},
+  {q:'Pakistan+India+border+incident', zone:'S.Asia',    ty:'wa'},
+  // ── Pakistan–Afghanistan conflict ──
+  {q:'Pakistan+Afghanistan+TTP+attack',          zone:'Pak-Afghan', ty:'al'},
+  {q:'Pakistan+airstrike+Afghanistan+Durand',    zone:'Pak-Afghan', ty:'al'},
+  {q:'TTP+Tehrik+Taliban+Pakistan+operation',    zone:'Pak-Afghan', ty:'al'},
+  {q:'Khyber+Pakhtunkhwa+KPK+military+attack',  zone:'Pak-Afghan', ty:'wa'},
+  {q:'Pakistan+Afghanistan+border+closure',      zone:'Pak-Afghan', ty:'wa'},
+  {q:'Balochistan+BLA+attack+military',          zone:'Pak-Afghan', ty:'wa'},
+  {q:'Afghan+Taliban+Pakistan+expel+militants',  zone:'Pak-Afghan', ty:'in'},
+  // ── NATURAL DISASTERS ──
+  {q:'volcano+eruption+alert',         zone:'GEO',       ty:'al'},
+  {q:'earthquake+magnitude+tsunami',   zone:'GEO',       ty:'al'},
+  {q:'hurricane+typhoon+cyclone',      zone:'GEO',       ty:'wa'},
+  {q:'wildfire+evacuation+emergency',  zone:'GEO',       ty:'wa'},
+  {q:'flood+disaster+emergency',       zone:'GEO',       ty:'wa'},
+  // ── CYBER / INFRASTRUCTURE ──
+  {q:'cyberattack+infrastructure+hack',zone:'CYBER',     ty:'al'},
+  {q:'ransomware+attack+government',   zone:'CYBER',     ty:'al'},
+  {q:'power+grid+outage+attack',       zone:'CYBER',     ty:'wa'},
+  // ── GEOPOLITICAL ──
+  {q:'nuclear+threat+weapon+launch',   zone:'NUKE',      ty:'al'},
+  {q:'coup+military+takeover',         zone:'GEO',       ty:'al'},
+  {q:'sanctions+embargo+SWIFT',        zone:'GEO',       ty:'in'},
+  {q:'space+launch+satellite+missile', zone:'SPACE',     ty:'in'},
 ];
 
 // ── LIVE TELEGRAM CHANNEL SOURCES ────────────────────────────────────────────
@@ -45,23 +63,24 @@ const RSSHUB_TG='https://rsshub.app/telegram/channel/';
 // @osinttechnical → t.me/osinttechnical (confirmed channel)
 // Additional high-value OSINT Telegram channels for broader coverage
 const TELEGRAM_OSINT_CHANNELS=[
-  // BROAD OSINT — methodology, investigations, tools
-  {channel:'bellingcat',        label:'Bellingcat',           zone:'OSINT',   ty:'in', twitter:'bellingcat'},
+  // Channels confirmed to have public t.me/s/ preview enabled
+  // OSINT / INVESTIGATIONS
   {channel:'OSINTdefender',     label:'OSINT Defender',       zone:'OSINT',   ty:'al', twitter:'sentdefender'},
-  {channel:'osinttechnical',    label:'OSINT Technical',      zone:'OSINT',   ty:'in', twitter:'osinttechnical'},
-  {channel:'ELINTNews',         label:'ELINT News',           zone:'OSINT',   ty:'al', twitter:'ELINTNews'},
-  {channel:'TheIntelLab',       label:'Intel Lab',            zone:'OSINT',   ty:'wa', twitter:'TheIntelLab'},
-  {channel:'geaboratory',       label:'GeoConfirmed',         zone:'OSINT',   ty:'in', twitter:'GeoConfirmed'},
-  {channel:'inteaboratory',     label:'Intel Repository',     zone:'OSINT',   ty:'al', twitter:null},
-  {channel:'sector035',         label:'Sector035',            zone:'OSINT',   ty:'in', twitter:'sector035'},
-  {channel:'OSINTCurious',      label:'OSINT Curious',        zone:'OSINT',   ty:'in', twitter:'OSINTCurious'},
-  {channel:'hatless1der',       label:'Hatless1der',          zone:'OSINT',   ty:'in', twitter:'hatless1der'},
-  {channel:'sinwindie',         label:'Sinwindie',            zone:'OSINT',   ty:'in', twitter:'sinwindie'},
-  {channel:'dutchosinter',      label:'Dutch OsintEr',        zone:'OSINT',   ty:'in', twitter:'dutch_osinter'},
-  {channel:'nixintel',          label:'Nixintel',             zone:'OSINT',   ty:'in', twitter:'nixintel'},
-  // GLOBAL / MULTI-THEATER
-  {channel:'IranIntl_En',       label:'Iran Intl English',    zone:'MENA',    ty:'wa', twitter:'IranIntl_En'},
+  {channel:'Intel_Alert',       label:'Intel Alert',          zone:'OSINT',   ty:'al', twitter:null},
+  {channel:'intelnews',         label:'Intel News',           zone:'OSINT',   ty:'in', twitter:null},
+  {channel:'osint_daily',       label:'OSINT Daily',          zone:'OSINT',   ty:'in', twitter:null},
+  {channel:'conflictnews',      label:'Conflict News',        zone:'OSINT',   ty:'al', twitter:null},
+  {channel:'theinsider',        label:'The Insider',          zone:'OSINT',   ty:'in', twitter:'theins_en'},
+  // GLOBAL MONITORING
+  {channel:'IntelSlava',        label:'Intel Slava',          zone:'OSINT',   ty:'al', twitter:null},
+  {channel:'MiddleEastSpectator', label:'ME Spectator',       zone:'MENA',    ty:'wa', twitter:null},
+  {channel:'globalcrisismedia', label:'Global Crisis',        zone:'OSINT',   ty:'al', twitter:null},
+  {channel:'IranIntl_En',       label:'Iran Intl',            zone:'MENA',    ty:'wa', twitter:'IranIntl_En'},
   {channel:'africanosint',      label:'Africa OSINT',         zone:'Africa',  ty:'al', twitter:null},
+  // Pak-Afghan conflict channels
+  {channel:'PakistanMilitaryForum',  label:'Pakistan Military Forum',     zone:'Pak-Afghan'},
+  {channel:'AfghanistanLiveUpdate',  label:'Afghanistan Live Updates',    zone:'Pak-Afghan'},
+  {channel:'pak_afghan_conflict',    label:'Pak-Afghan Conflict Monitor', zone:'Pak-Afghan'},
 ];
 
 // Master store: all real posts pulled from Telegram, used by both OSINT feed AND conflict trackers
@@ -86,6 +105,7 @@ const ZONE_KEYWORDS={
   'Taiwan Strait':[/taiwan/i,/strait/i,/pla\b/i,/beijing/i,/xi.?jinping/i],
   'SCS':[/south.china.sea/i,/spratly/i,/scarborough/i,/philippines/i],
   'India-Pakistan':[/india.?pakistan/i,/kashmir/i,/loc\b/i,/sindoor/i,/pahalgam/i],
+  'Pak-Afghan':[/\bttp\b/i,/tehrik.?i.?taliban/i,/pakistan.?afghan/i,/afghan.?pakistan/i,/durand/i,/waziristan/i,/khyber/i,/\/kpk\b/i,/balochistan/i,/\/bla\b/i,/bajaur/i,/mohmand/i,/kunar/i,/nangarhar/i,/kandahar.?pakistan/i,/cross.?border.?strike/i,/pakistan.?airstrike/i,/afghan.?border/i],
   'Mexico':[/mexico/i,/cjng/i,/jalisco/i,/cartel/i,/mencho/i,/guadalajara/i,/puerto.?vallarta/i,/michoacan/i,/tamaulipas/i,/narcobloqueo/i,/fentanyl/i,/sinaloa/i],
 };
 
@@ -93,6 +113,18 @@ const ZONE_KEYWORDS={
 const ofE=document.getElementById('of');
 
 // Fetch news: try allorigins to get raw RSS XML, parse in-browser
+
+// ── DIRECT RSS FEEDS — broad monitoring sources ───────────────────────────────
+// These bypass Google News and pull directly from authoritative sources
+const RSS_FEEDS=[
+  {url:'https://www.gdacs.org/xml/rss.xml',          label:'GDACS',        zone:'GEO',   ty:'al'},
+  {url:'https://feeds.reuters.com/reuters/worldNews', label:'Reuters World',zone:'GEO',   ty:'in'},
+  {url:'https://feeds.bbci.co.uk/news/world/rss.xml', label:'BBC World',   zone:'GEO',   ty:'in'},
+  {url:'https://rss.dw.com/rdf/rss-en-world',         label:'DW World',    zone:'GEO',   ty:'in'},
+  {url:'https://www.aljazeera.com/xml/rss/all.xml',   label:'Al Jazeera',  zone:'GEO',   ty:'in'},
+  {url:'https://feeds.washingtonpost.com/rss/world',  label:'WaPo World',  zone:'GEO',   ty:'in'},
+];
+
 async function fetchNewsQuery(qObj){
   const rssUrl=GN_BASE+qObj.q+GN_PARAMS;
   const proxyUrls=[
@@ -113,6 +145,21 @@ async function fetchNewsQuery(qObj){
       }
     }catch(e){continue;}
   }
+}
+
+
+// ── Direct RSS feed fetcher ──────────────────────────────────────────────────
+async function fetchRSSFeed(feed){
+  try{
+    const r=await fetch(PROXY(feed.url),{signal:AbortSignal.timeout(10000)});
+    if(!r.ok)return;
+    const xml=await r.text();
+    const items=parseRSSXml(xml);
+    items.slice(0,6).reverse().forEach(item=>{
+      if(!item.title||item.title.length<10)return;
+      addLiveItem(item.title,feed.label,item.pubDate,item.link,feed.zone,feed.ty,false);
+    });
+  }catch(e){}
 }
 
 // ── Telegram channel fetcher — MULTI-METHOD with CORS proxy fallbacks ────────
@@ -344,13 +391,16 @@ async function refreshLiveFeed(){
   const newsPromises=FEED_QUERIES.map((q,i)=>
     new Promise(r=>setTimeout(()=>fetchNewsQuery(q).then(r).catch(r),i*200))
   );
+  const rssPromises=RSS_FEEDS.map((feed,i)=>
+    new Promise(r=>setTimeout(()=>fetchRSSFeed(feed).then(r).catch(r),i*300))
+  );
 
   // Telegram: stagger 400ms apart (respect rate limits but faster than 800ms)
   const tgPromises=TELEGRAM_OSINT_CHANNELS.map((ch,i)=>
     new Promise(r=>setTimeout(()=>fetchTelegramChannel(ch).then(r).catch(r),i*400))
   );
 
-  await Promise.allSettled([...newsPromises,...tgPromises]);
+  await Promise.allSettled([...newsPromises,...rssPromises,...tgPromises]);
 
   const postCount=liveTelegramPosts.length;
   const newPosts=postCount-preCount;
