@@ -167,5 +167,5 @@ map.on('load',()=>{
 
 
 // ====== LAYER TOGGLES ======
-var lMap={flights:['fl-lyr','fl-glow','fl-emerg'],sats:['sat-lyr'],conf:['cheat','ccore'],cams:['cam-dot','cam-glow'],fronts:['fronts-fill','fronts-line','fronts-border'],outages:['outage-fill','outage-border'],quakes:['eq-ring-0','eq-ring-1','eq-ring-2','eq-core','eq-label']};
+var lMap={flights:['fl-lyr','fl-glow','fl-emerg'],sats:['sat-lyr'],conf:['cheat','ccore'],cams:['cam-dot','cam-glow'],fronts:['fronts-fill','fronts-line','fronts-border'],outages:['outage-fill','outage-hatch','outage-border'],quakes:['eq-ring-0','eq-ring-1','eq-ring-2','eq-core','eq-label']};
 function togL(el){const l=el.dataset.l;layerVis[l]=!layerVis[l];el.classList.toggle('on');if(lMap[l])lMap[l].forEach(id=>{try{map.setLayoutProperty(id,'visibility',layerVis[l]?'visible':'none');}catch(e){}});if(l==='osint')document.getElementById('pr').style.display=layerVis.osint?'flex':'none';if(l==='outages'&&typeof setOutageVis==='function')setOutageVis(layerVis.outages);}
