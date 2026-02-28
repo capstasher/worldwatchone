@@ -514,7 +514,8 @@ function closeOrrery(){
   document.getElementById('pl')?.classList.remove('slide-out');
   document.getElementById('pr')?.classList.remove('slide-out');
   document.getElementById('search-box')?.classList.remove('slide-out');
-  document.getElementById('bb')?.classList.remove('slide-out');
+  const bbEl=document.getElementById('bb');
+  if(bbEl){bbEl.classList.remove('slide-out');bbEl.style.opacity='1';bbEl.style.transform='translateY(0)';}
 
   // Restore data layers
   Object.keys(layerVis).forEach(k=>{
@@ -922,6 +923,8 @@ let _ssnVisible = false;
 
 const SSN_RANGES = [
   { key: 'all',   label: 'ALL TIME',   months: null },
+  { key: '100y',  label: '100 YEARS',  months: 1200 },
+  { key: '50y',   label: '50 YEARS',   months: 600  },
   { key: '10y',   label: '10 YEARS',   months: 120  },
   { key: '5y',    label: '5 YEARS',    months: 60   },
   { key: '1y',    label: 'PAST YEAR',  months: 12   },
