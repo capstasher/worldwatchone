@@ -9,13 +9,15 @@
 
 const CONF_ZONE_KEYS = {
   // ── Ukraine ──────────────────────────────────────────────────────────────
-  'Ukraine':          'UA',          // whole country envelope for toggling
-  'Donetsk':         'rel:72639',
+  // Oblast relations — these are the Ukrainian admin boundary relations
+  'Donetsk':         'rel:72639',   // Donetsk Oblast
+  'Luhansk':         'rel:72638',
   'Zaporizhzhia':    'rel:72641',
   'Kherson':         'rel:72642',
-  'Kharkiv':         'rel:7500774',
+  'Kharkiv':         'rel:72640',   // corrected — 7500774 is a different entity
+  'Sumy':            'rel:72643',
   'Crimea':          'rel:2634673',
-  'Kursk':           'rel:176017',   // Russian oblast for Kursk salient
+  'Kursk':           'rel:176017',
 
   // ── Iran / Operation Epic Fury ────────────────────────────────────────────
   'Iran':            'IR',
@@ -31,34 +33,37 @@ const CONF_ZONE_KEYS = {
 
   // ── Israel / Palestine ────────────────────────────────────────────────────
   'Israel':          'IL',
-  'Gaza':            'rel:1703814',
-  'West Bank':       'rel:1803010',
+  'Gaza':            'rel:5441968',   // Gaza Strip boundary relation
+  'West Bank':       'rel:1803010',   // West Bank boundary relation
 
   // ── Lebanon ───────────────────────────────────────────────────────────────
-  'South Lebanon':   'rel:2178721',  // South Governorate
+  'South Lebanon':   'rel:2178721',
 
   // ── Syria ─────────────────────────────────────────────────────────────────
   'Syria':           'SY',
 
   // ── Sudan ─────────────────────────────────────────────────────────────────
-  'Sudan':           'SD',
   'Khartoum':        'rel:1305407',
   'North Darfur':    'rel:1305408',
   'West Darfur':     'rel:3718437',
   'South Darfur':    'rel:1305410',
   'North Kordofan':  'rel:1305409',
   'South Kordofan':  'rel:1305411',
+  'Blue Nile':       'rel:1305412',
 
   // ── Myanmar ───────────────────────────────────────────────────────────────
   'Shan State':      'rel:1812864',
   'Rakhine State':   'rel:1812865',
   'Kachin State':    'rel:1812862',
   'Sagaing Region':  'rel:1812872',
+  'Kayah State':     'rel:1812869',
+  'Karen State':     'rel:1812868',
 
   // ── DRC ───────────────────────────────────────────────────────────────────
   'North Kivu':      'rel:2340462',
   'South Kivu':      'rel:2340463',
   'Ituri':           'rel:2340454',
+  'Maniema':         'rel:2340458',
 
   // ── Yemen ─────────────────────────────────────────────────────────────────
   'Yemen':           'YE',
@@ -82,7 +87,7 @@ const CONF_ZONE_KEYS = {
   'Cabo Delgado':    'rel:2400484',
 
   // ── Pakistan ──────────────────────────────────────────────────────────────
-  'KP Pakistan':     'rel:3244185',  // Khyber Pakhtunkhwa
+  'KP Pakistan':     'rel:3244185',
   'Balochistan':     'rel:3244181',
 
   // ── Taiwan / SCS ──────────────────────────────────────────────────────────
@@ -101,7 +106,7 @@ const CONF_ZONE_KEYS = {
 // Map from conflicts.json region → zone key(s) to fetch
 // A region can span multiple zone keys (e.g. Sudan = Khartoum + Darfur states)
 const REGION_ZONE_MAP = {
-  'Ukraine':      ['Donetsk','Zaporizhzhia','Kherson','Kharkiv','Crimea'],
+  'Ukraine':      ['Donetsk','Luhansk','Zaporizhzhia','Kherson','Kharkiv','Sumy','Crimea'],
   'Iran':         ['Iran'],
   'Gulf':         ['Qatar','Bahrain','UAE','Kuwait','Saudi Arabia','Jordan'],
   'Iraq':         ['Iraq'],
@@ -109,9 +114,9 @@ const REGION_ZONE_MAP = {
   'Palestine':    ['Gaza','West Bank'],
   'Lebanon':      ['South Lebanon'],
   'Syria':        ['Syria'],
-  'Sudan':        ['Khartoum','North Darfur','West Darfur','South Darfur','North Kordofan','South Kordofan'],
-  'Myanmar':      ['Shan State','Rakhine State','Kachin State','Sagaing Region'],
-  'DRC':          ['North Kivu','South Kivu','Ituri'],
+  'Sudan':        ['Khartoum','North Darfur','West Darfur','South Darfur','North Kordofan','South Kordofan','Blue Nile'],
+  'Myanmar':      ['Shan State','Rakhine State','Kachin State','Sagaing Region','Kayah State','Karen State'],
+  'DRC':          ['North Kivu','South Kivu','Ituri','Maniema'],
   'Yemen':        ['Yemen'],
   'Red Sea':      ['Yemen'],   // use Yemen coast as proxy
   'Somalia':      ['Somalia'],
@@ -142,9 +147,96 @@ function _confLineColor(int) {
   return 'rgba(200,90,0,0.42)';
 }
 
+// Per-zone max vertex count — small territories need fewer points to avoid
+// glitching at low zoom; large countries can handle more detail
+const _ZONE_MAX_PTS = {
+  'Gaza':          300,
+  'West Bank':     500,
+  'South Lebanon': 800,
+  'Bahrain':       400,
+  'Kuwait':        600,
+  'Qatar':         600,
+  'Crimea':        1200,
+  'Kursk':         1200,
+};
+const _DEFAULT_MAX_PTS = 4000;
+
+// Conflict-specific geometry parser — proper inner ring handling + per-zone decimation
+function _confToGeoJSON(data, zoneName) {
+  const maxPts = _ZONE_MAX_PTS[zoneName] || _DEFAULT_MAX_PTS;
+  const relation = data?.elements?.find(e => e.type === 'relation');
+  if (!relation?.members) return null;
+
+  const outerWays = [], innerWays = [];
+  relation.members.forEach(m => {
+    if (m.type !== 'way' || !m.geometry?.length) return;
+    const pts = m.geometry.map(pt => [pt.lon, pt.lat]);
+    if (pts.length < 2) return;
+    (m.role === 'inner' ? innerWays : outerWays).push(pts);
+  });
+  if (!outerWays.length) return null;
+
+  const EPS = 1e-5;
+  const ptKey = pt => `${(pt[0]/EPS|0)},${(pt[1]/EPS|0)}`;
+
+  function stitch(ways) {
+    let remaining = ways.map(w => [...w]);
+    const rings = [];
+    while (remaining.length > 0) {
+      let ring = remaining.shift();
+      let grew = true;
+      while (grew) {
+        grew = false;
+        const tk = ptKey(ring[ring.length-1]), hk = ptKey(ring[0]);
+        for (let i = 0; i < remaining.length; i++) {
+          const w = remaining[i];
+          const wh = ptKey(w[0]), wt = ptKey(w[w.length-1]);
+          if      (wh === tk) ring = ring.concat(w.slice(1));
+          else if (wt === tk) ring = ring.concat(w.slice(0,-1).reverse());
+          else if (wt === hk) ring = w.concat(ring.slice(1));
+          else if (wh === hk) ring = w.slice().reverse().concat(ring.slice(1));
+          else continue;
+          remaining.splice(i, 1); grew = true; break;
+        }
+      }
+      const f = ring[0], l = ring[ring.length-1];
+      if (ptKey(f) !== ptKey(l)) ring.push([...f]);
+      const dec = _decimate(ring, maxPts);
+      if (dec.length >= 4) rings.push(dec);
+    }
+    return rings;
+  }
+
+  const outerRings = stitch(outerWays);
+  const innerRings = stitch(innerWays);
+  if (!outerRings.length) return null;
+
+  if (outerRings.length === 1) {
+    return { type: 'Polygon', coordinates: [outerRings[0], ...innerRings] };
+  }
+
+  // MultiPolygon — assign each inner ring to its containing outer by bbox
+  function bbox(ring) {
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for (const [x,y] of ring) { if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y; }
+    return [x0,y0,x1,y1];
+  }
+  const outerBboxes = outerRings.map(bbox);
+  const polys = outerRings.map(r => [r]);
+  innerRings.forEach(inner => {
+    const tp = inner[0];
+    for (let i = 0; i < outerBboxes.length; i++) {
+      const [x0,y0,x1,y1] = outerBboxes[i];
+      if (tp[0]>=x0&&tp[0]<=x1&&tp[1]>=y0&&tp[1]<=y1) { polys[i].push(inner); return; }
+    }
+    polys[0].push(inner); // fallback
+  });
+  return { type: 'MultiPolygon', coordinates: polys };
+}
+
 const _confBoundaryCache = {};  // separate from outage cache
 
-async function _fetchConfBoundary(key) {
+async function _fetchConfBoundary(key, zoneName) {
   if (_confBoundaryCache[key]) return;
   try {
     const param = key.startsWith('rel:') ? `rel=${key.slice(4)}` : `iso=${key}`;
@@ -152,10 +244,34 @@ async function _fetchConfBoundary(key) {
       { signal: AbortSignal.timeout(30000) });
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
-    const geom = _overpassToGeoJSON(data);  // reuse outages.js geometry parser
-    if (geom) { _confBoundaryCache[key] = geom; console.log('[WWO] Conf boundary cached:', key); }
-    else console.warn('[WWO] No conf geometry for', key);
+    const geom = _confToGeoJSON(data, zoneName);  // use conflict-specific parser
+    if (geom) { _confBoundaryCache[key] = geom; console.log('[WWO] Conf boundary cached:', key, zoneName); }
+    else console.warn('[WWO] No conf geometry for', key, zoneName);
   } catch(e) { console.warn('[WWO] Conf boundary failed:', key, e.message); }
+}
+
+// ── Conflict zone pulse animation ────────────────────────────────────────────
+// Slow sine breath: opacity oscillates between MIN and MAX over PERIOD ms
+// Hooked into map.on('render') like the plasma — no competing rAF
+let _confPulseT = 0;
+const _PULSE_PERIOD = 3500; // ms for one full cycle
+const _PULSE_MIN    = 0.25;
+const _PULSE_MAX    = 1.0;
+
+function _startConfPulse(map) {
+  let last = performance.now();
+  map.on('render', () => {
+    const now = performance.now();
+    _confPulseT += (now - last) / _PULSE_PERIOD;
+    last = now;
+    // Sine goes -1→1; remap to MIN→MAX
+    const s = (Math.sin(_confPulseT * Math.PI * 2) + 1) / 2; // 0→1→0
+    const opacity = _PULSE_MIN + s * (_PULSE_MAX - _PULSE_MIN);
+    try {
+      map.setPaintProperty('fronts-fill', 'fill-opacity', opacity);
+    } catch(e) {}
+    map.triggerRepaint();
+  });
 }
 
 // Fetch and render real OSM boundaries for all active conflict zones
@@ -171,7 +287,7 @@ async function initConflictZones(map) {
   await Promise.allSettled([...needed].map(zoneName => {
     const key = CONF_ZONE_KEYS[zoneName];
     if (!key) return Promise.resolve();
-    return _fetchConfBoundary(key);
+    return _fetchConfBoundary(key, zoneName);
   }));
 
   // Build GeoJSON features — one per zone, styled by highest intensity in that region
@@ -211,6 +327,9 @@ async function initConflictZones(map) {
     map.setPaintProperty('fronts-line', 'line-color', ['get','line']);
     map.setPaintProperty('fronts-border','line-color', ['get','line']);
   } catch(e) {}
+
+  // Start the slow pulse — opacity breathes in/out over the fill layer
+  _startConfPulse(map);
 }
 
 // ====== DETAIL PANELS ======
