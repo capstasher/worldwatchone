@@ -125,7 +125,7 @@ const REGION_ZONE_MAP = {
   'Ethiopia':     ['Amhara Region','Tigray Region'],
   'South Sudan':  ['South Sudan'],
   'Mozambique':   ['Cabo Delgado'],
-  'Pakistan':     ['KP Pakistan','Balochistan','Afghanistan'],
+  'Pakistan':     ['KP Pakistan','Balochistan'],
   'Taiwan Strait':['Taiwan'],
   'SCS':          ['Taiwan'],
   'Haiti':        ['Haiti'],
@@ -134,18 +134,14 @@ const REGION_ZONE_MAP = {
   'Mexico':       ['Jalisco','Michoacan','Tamaulipas','Guanajuato'],
 };
 
-// Intensity colour for conflict zones (matches CONF dot colours)
+// Conflict zone colours — uniform red, opacity scales slightly with intensity
 function _confFillColor(int) {
-  if (int >= 0.90) return 'rgba(255,0,0,0.16)';
-  if (int >= 0.75) return 'rgba(230,20,0,0.13)';
-  if (int >= 0.55) return 'rgba(200,40,0,0.09)';
-  return 'rgba(160,60,0,0.06)';
+  const a = 0.08 + int * 0.10; // 0.08–0.18
+  return `rgba(255,0,0,${a.toFixed(3)})`;
 }
 function _confLineColor(int) {
-  if (int >= 0.90) return 'rgba(255,10,0,0.80)';
-  if (int >= 0.75) return 'rgba(240,20,0,0.68)';
-  if (int >= 0.55) return 'rgba(220,50,0,0.55)';
-  return 'rgba(200,90,0,0.42)';
+  const a = 0.45 + int * 0.40; // 0.45–0.85
+  return `rgba(255,0,0,${a.toFixed(3)})`;
 }
 
 // Per-zone max vertex count — small territories need fewer points to avoid
