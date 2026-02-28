@@ -14,27 +14,66 @@ let _map          = null;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
+// Plasma tile — 48x48 RGBA, updated inside map.on('render')
+const _PS = 48;
+const _PB = new Uint8Array(_PS * _PS * 4);
+const _BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+
+function _writePlasma(t) {
+  const isNerv = document.body.classList.contains('nerv');
+  const [pr,pg,pb] = isNerv ? [224,112,32] : [1,168,52];
+  let i = 0;
+  for (let y = 0; y < _PS; y++) {
+    for (let x = 0; x < _PS; x++) {
+      const cx = x / _PS, cy = y / _PS;
+      // Four overlapping sine waves — classic plasma
+      let v = Math.sin(cx * 6.2 + t)
+            + Math.sin(cy * 6.2 + t * 1.3)
+            + Math.sin((cx + cy) * 4.0 + t * 0.8)
+            + Math.sin(Math.sqrt((cx-.5)**2 + (cy-.5)**2) * 12 + t * 1.1);
+      v = (v + 4) / 8; // 0..1
+      // Ordered dither for organic transparent→solid transition
+      let a = 0;
+      if (v > 0.65) {
+        a = 140 + ((v - 0.65) / 0.35 * 80) | 0;
+      } else if (v > 0.30) {
+        const thr = _BAYER[((y % 4) * 4) + (x % 4)] / 16;
+        a = ((v - 0.30) / 0.35 > thr) ? 155 : 0;
+      }
+      _PB[i++]=pr; _PB[i++]=pg; _PB[i++]=pb; _PB[i++]=a;
+    }
+  }
+}
+
 function initOutages(map) {
   _map = map;
 
   map.addSource('outage-zones', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
 
-  // Pulsing fill — opacity animated via map.on('render') inside MapLibre's own pipeline
+  // Thin solid base so the zone is visible even mid-transition
   map.addLayer({ id:'outage-fill', type:'fill', source:'outage-zones',
-    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.15 } });
+    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.06 } });
+
+  // Plasma pattern layer
+  map.addLayer({ id:'outage-hatch', type:'fill', source:'outage-zones',
+    paint:{ 'fill-pattern':'plasma', 'fill-opacity':1 } });
 
   // Border
   map.addLayer({ id:'outage-border', type:'line', source:'outage-zones',
     paint:{ 'line-color':['get','fillColor'], 'line-width':1.5, 'line-opacity':0.9 } });
 
-  // Pulse animation — hooked into MapLibre render event, not a separate rAF
-  // Varies fill opacity 0.08↔0.28 with a slow sine wave, triggerRepaint keeps loop alive
-  let pulseT = 0;
+  // Seed the image in the atlas
+  _writePlasma(0);
+  map.addImage('plasma', { width:_PS, height:_PS, data:_PB }, { pixelRatio:1 });
+
+  // Animation — inside MapLibre's own render event, no competing rAF
+  let t = 0;
   map.on('render', () => {
     if (!outageVis || !outageData.length) return;
-    pulseT += 0.018;
-    const opacity = 0.10 + Math.sin(pulseT) * 0.08; // 0.02–0.18
-    try { map.setPaintProperty('outage-fill', 'fill-opacity', opacity); } catch(e) {}
+    t += 0.022;
+    _writePlasma(t);
+    // updateImage swaps pixel data in the existing GPU texture — cheap
+    if (map.hasImage('plasma')) map.updateImage('plasma', { width:_PS, height:_PS, data:_PB });
     map.triggerRepaint();
   });
 
@@ -245,7 +284,7 @@ function _overpassToGeoJSON(data) {
       const f = ring[0], l = ring[ring.length-1];
       if (key(f) !== key(l)) ring.push([...f]);
       // Decimate to max 800 pts per ring to keep tesselator happy
-      const dec = _decimate(ring, 800);
+      const dec = _decimate(ring, 2000); // 2000 keeps detail on large countries
       if (dec.length >= 4) rings.push(dec);
     }
     return rings;
@@ -289,7 +328,7 @@ function outageThemeUpdate() {
 
 function setOutageVis(vis) {
   outageVis = vis;
-  if (_map) ['outage-fill','outage-border'].forEach(id => {
+  if (_map) ['outage-fill','outage-hatch','outage-border'].forEach(id => {
     try { _map.setLayoutProperty(id,'visibility', vis?'visible':'none'); } catch(e){}
   });
 }
