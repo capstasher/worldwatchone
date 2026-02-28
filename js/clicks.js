@@ -44,6 +44,30 @@ map.on('click',e=>{
       .addTo(map);
     return;
   }
+  // Net outage zone — lowest priority (large fill area, should yield to everything)
+  f=map.queryRenderedFeatures(e.point,{layers:['outage-fill']});
+  if(f.length){
+    const p=f[0].properties;
+    const isNerv=document.body.classList.contains('nerv');
+    const ac=isNerv?'#e07020':'#01a834';
+    const lvl=(p.outageLevel||'warning').toUpperCase();
+    const rate=p.ooniRate!=null?Math.round(p.ooniRate*100)+'%':'N/A';
+    const code=p.outageCode||'??';
+    const name=p.outageName||code;
+    new maplibregl.Popup({className:'eq-popup',maxWidth:'280px',closeButton:true})
+      .setLngLat(e.lngLat)
+      .setHTML(`<div class="eq-hdr"><span class="eq-mag" style="color:${ac}">🔌</span><span class="eq-type" style="color:${ac}">NET OUTAGE</span></div>
+        <div class="eq-body">
+          <div class="eq-place">${name}</div>
+          <div class="eq-row"><span>SEVERITY</span><span style="color:${ac}">${lvl}</span></div>
+          <div class="eq-row"><span>ANOMALY RATE</span><span>${rate} of probes</span></div>
+          <div class="eq-row"><span>SOURCE</span><span>OONI Explorer</span></div>
+          <div class="eq-row"><span>ISO CODE</span><span>${code}</span></div>
+          <a class="eq-link" href="https://explorer.ooni.org/country/${code}" target="_blank" style="color:${ac}">OONI COUNTRY REPORT →</a>
+        </div>`)
+      .addTo(map);
+    return;
+  }
 });
 // Cursor changes — also use bbox so pointer appears before you're pixel-perfect
 map.on('mousemove',e=>{
