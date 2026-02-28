@@ -287,7 +287,7 @@ function _overpassToGeoJSON(data) {
       const f = ring[0], l = ring[ring.length-1];
       if (key(f) !== key(l)) ring.push([...f]);
       // Decimate to max 800 pts per ring to keep tesselator happy
-      const dec = _decimate(ring, 2000); // 2000 keeps detail on large countries
+      const dec = _decimate(ring, 6000); // 6000 preserves detail on complex borders
       if (dec.length >= 4) rings.push(dec);
     }
     return rings;
