@@ -65,6 +65,7 @@ async function _tryNetBlocks() {
     const items = _parseRSSItems(xml);
     const countries = _extractCountriesFromItems(items);
     console.log('[WWO] NetBlocks items:', items.length, '→ countries:', countries.map(c=>c.code));
+    console.log('[WWO] NetBlocks titles:', items.map(i=>i.title));
 
     outageData = countries;
     await _applyOutageData();
