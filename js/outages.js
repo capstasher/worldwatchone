@@ -93,45 +93,88 @@ function initOutages(map) {
   lMap.outages = ['outage-fill', 'outage-border'];
 }
 
-// ── Fetch IODA outage alerts ──────────────────────────────────────────────────
+// ── Fetch IODA outage data ────────────────────────────────────────────────────
 async function fetchOutages() {
-  try {
-    const r = await fetch(`${PROXY_BASE}/api/outages`, { signal: AbortSignal.timeout(15000) });
-    if (!r.ok) throw new Error('IODA ' + r.status);
-    const d = await r.json();
-    parseIODA(d);
-  } catch(e) {
-    console.warn('[WWO] IODA outages error:', e.message);
-    // Fallback: try direct (may work without CORS issues from some regions)
+  const now  = Math.floor(Date.now() / 1000);
+  const from = now - 86400;
+
+  // IODA has open CORS — try direct first, Worker proxy as fallback
+  const attempts = [
+    // Direct to IODA outages endpoint
+    () => fetch(`https://api.ioda.caida.org/v2/outages?entityType=country&from=${from}&until=${now}&limit=200`,
+      { signal: AbortSignal.timeout(20000) }),
+    // Direct to IODA alerts endpoint (older name)
+    () => fetch(`https://api.ioda.caida.org/v2/alerts?entityType=country&from=${from}&until=${now}&limit=200`,
+      { signal: AbortSignal.timeout(20000) }),
+    // Via Worker proxy
+    () => fetch(`${PROXY_BASE}/api/outages`, { signal: AbortSignal.timeout(25000) }),
+  ];
+
+  for (const attempt of attempts) {
     try {
-      const now = Math.floor(Date.now()/1000);
-      const r2 = await fetch(`https://api.ioda.caida.org/v2/alerts?from=${now-86400}&until=${now}&limit=100`,
-        { signal: AbortSignal.timeout(12000) });
-      if (r2.ok) { const d2 = await r2.json(); parseIODA(d2); }
-    } catch(e2) {}
+      const r = await attempt();
+      if (!r.ok) { console.warn('[WWO] IODA attempt failed:', r.status, r.url); continue; }
+      const text = await r.text();
+      console.log('[WWO] IODA raw response (first 300 chars):', text.slice(0, 300));
+      const d = JSON.parse(text);
+      parseIODA(d);
+      return;
+    } catch(e) {
+      console.warn('[WWO] IODA attempt error:', e.message);
+    }
   }
+  console.error('[WWO] All IODA fetch attempts failed');
 }
 
 function parseIODA(d) {
-  // IODA v2 response: { data: { alerts: [ { entity:{type,code,name}, time, level, ... } ] } }
-  const alerts = d?.data?.alerts || d?.alerts || [];
+  // IODA v2 response shapes vary by endpoint:
+  // /v2/outages  → { data: [ { entity:{type,code,name}, ...scores... } ] }
+  // /v2/alerts   → { data: { alerts: [ { entity, level, ... } ] } }
+  // Both may also be wrapped differently — handle all shapes
+  console.log('[WWO] IODA response keys:', Object.keys(d));
+
   const byCountry = new Map();
 
-  alerts.forEach(a => {
-    const entity = a.entity || a;
-    if (!entity || entity.type !== 'country') return;
-    const code = (entity.code || '').toUpperCase();
-    const name = entity.name || code;
-    // Score based on alert level (IODA: 'critical', 'warning', 'normal')
-    const level = (a.level || '').toLowerCase();
-    const score = level === 'critical' ? 3 : level === 'warning' ? 2 : 1;
+  function ingest(items) {
+    if (!Array.isArray(items)) return;
+    items.forEach(a => {
+      // entity can be at top level or nested
+      const entity = a.entity || a;
+      const type = entity.type || entity.entityType || '';
+      if (type && type !== 'country') return; // skip AS/region if entityType present
 
-    if (!byCountry.has(code) || byCountry.get(code).score < score) {
-      byCountry.set(code, { code, name, level, score });
-    }
-  });
+      const code = (entity.code || entity.iso || entity.entityCode || '').toUpperCase();
+      if (!code || code.length !== 2) return;
+      const name = entity.name || entity.entityName || code;
 
-  outageData = [...byCountry.values()].filter(c => c.score >= 2); // warning+critical only
+      // Score from explicit level string or from numeric scores array
+      let level = (a.level || a.alertLevel || '').toLowerCase();
+      let score = 0;
+      if (level === 'critical') score = 3;
+      else if (level === 'warning' || level === 'warn') score = 2;
+      else if (a.scores || a.overallScore) {
+        // /v2/outages gives numeric scores — any non-zero = active outage
+        const overall = a.overallScore || Math.max(...Object.values(a.scores || {}));
+        if (overall > 0.8) { score = 3; level = 'critical'; }
+        else if (overall > 0.3) { score = 2; level = 'warning'; }
+        else score = 1;
+      } else score = 1;
+
+      if (!byCountry.has(code) || byCountry.get(code).score < score) {
+        byCountry.set(code, { code, name, level, score });
+      }
+    });
+  }
+
+  // Try all known response shapes
+  ingest(d?.data);                     // /v2/outages → data is array
+  ingest(d?.data?.alerts);             // /v2/alerts  → data.alerts is array
+  ingest(d?.data?.outages);            // possible variant
+  ingest(d?.alerts);                   // flat fallback
+  ingest(d?.outages);                  // flat fallback
+
+  outageData = [...byCountry.values()].filter(c => c.score >= 2);
+  console.log('[WWO] IODA parsed countries:', byCountry.size, '→ warning+:', outageData.length);
 
   _buildOutageFeatures();
   _updateOutageCounter();
