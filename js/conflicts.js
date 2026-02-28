@@ -10,10 +10,10 @@
 const CONF_ZONE_KEYS = {
   // ── Ukraine ──────────────────────────────────────────────────────────────
   // Oblast relations — these are the Ukrainian admin boundary relations
-  'Donetsk':         'rel:72639',   // Donetsk Oblast
-  'Luhansk':         'rel:72638',
-  'Zaporizhzhia':    'rel:72641',
-  'Kherson':         'rel:72642',
+  'Donetsk':         'rel:71973',
+  'Luhansk':         'rel:71971',
+  'Zaporizhzhia':    'rel:71980',
+  'Kherson':         'rel:71022',
   'Kharkiv':         'rel:72640',   // corrected — 7500774 is a different entity
   'Sumy':            'rel:72643',
   'Crimea':          'rel:2634673',
@@ -33,8 +33,8 @@ const CONF_ZONE_KEYS = {
 
   // ── Israel / Palestine ────────────────────────────────────────────────────
   'Israel':          'IL',
-  'Gaza':            'rel:5441968',   // Gaza Strip boundary relation
-  'West Bank':       'rel:1803010',   // West Bank boundary relation
+  'Gaza':            'rel:1473938',
+  'West Bank':       'rel:1613659',
 
   // ── Lebanon ───────────────────────────────────────────────────────────────
   'South Lebanon':   'rel:2178721',
@@ -208,7 +208,10 @@ function _confToGeoJSON(data, zoneName) {
   }
 
   const outerRings = stitch(outerWays);
-  const innerRings = stitch(innerWays);
+  // Some zones (West Bank) have hundreds of inner settlement polygons that
+  // render as visible fills — strip them and keep the outer boundary only
+  const stripInners = ['West Bank'];
+  const innerRings = stripInners.includes(zoneName) ? [] : stitch(innerWays);
   if (!outerRings.length) return null;
 
   if (outerRings.length === 1) {
