@@ -13,10 +13,10 @@ let _map          = null;
 // hatch pattern registered as MapLibre image — no canvas overlay needed
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-let _plasmaFrame   = 0;
-let _plasmaLoaded  = false;
-// PLASMA_FRAMES defined in plasma-frames.js
-const PLASMA_MS     = 80; // ms per frame (~12fps — smooth but cheap)
+let _plasmaT = 0; // plasma time accumulator
+
+const PLASMA_SIZE = 32; // tile px — small enough to update cheaply each frame
+const PLASMA_BUF  = new Uint8Array(PLASMA_SIZE * PLASMA_SIZE * 4); // RGBA
 
 function initOutages(map) {
   _map = map;
@@ -25,55 +25,62 @@ function initOutages(map) {
 
   // Solid tint base
   map.addLayer({ id:'outage-fill', type:'fill', source:'outage-zones',
-    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.08 } });
+    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.06 } });
 
-  // Plasma pattern overlay — animated by swapping MapLibre image every frame
+  // Plasma fill-pattern layer
   map.addLayer({ id:'outage-hatch', type:'fill', source:'outage-zones',
-    paint:{ 'fill-pattern':'plasma-0', 'fill-opacity':1 } });
+    paint:{ 'fill-pattern':'plasma', 'fill-opacity':1 } });
 
   // Border
   map.addLayer({ id:'outage-border', type:'line', source:'outage-zones',
     paint:{ 'line-color':['get','fillColor'], 'line-width':1.5, 'line-opacity':0.9 } });
 
-  // Load plasma frames into MapLibre sprite atlas then start animation
-  _loadPlasmaFrames(map).then(() => {
-    _plasmaLoaded = true;
-    _animatePlasma();
-  });
+  // Register initial blank image then start animation loop
+  _plasmaWriteFrame(0);
+  map.addImage('plasma', { width:PLASMA_SIZE, height:PLASMA_SIZE, data:PLASMA_BUF }, { pixelRatio:1 });
+
+  // rAF loop — updateImage is cheap (just uploads PLASMA_SIZE² pixels to GPU)
+  let last = 0;
+  function frame(ts) {
+    requestAnimationFrame(frame);
+    if (ts - last < 80) return; // ~12fps cap
+    last = ts;
+    if (!outageVis) return;
+    _plasmaT += 0.08;
+    _plasmaWriteFrame(_plasmaT);
+    if (_map.hasImage('plasma')) _map.updateImage('plasma', { width:PLASMA_SIZE, height:PLASMA_SIZE, data:PLASMA_BUF });
+  }
+  requestAnimationFrame(frame);
 
   fetchOutages();
   setInterval(fetchOutages, OUTAGE_REFRESH_MS);
 }
 
-// Load all plasma frames for current theme into MapLibre image atlas
-async function _loadPlasmaFrames(map) {
-  const isNerv  = document.body.classList.contains('nerv');
-  const frames  = isNerv ? PLASMA_NERV : PLASMA_CTRL;
+// Bayer 4×4 ordered dither matrix
+const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 
-  const promises = frames.map((dataUrl, i) => new Promise(resolve => {
-    const img = new window.Image();
-    img.onload = () => {
-      // Remove old frame if reloading (theme switch)
-      if (map.hasImage(`plasma-${i}`)) map.removeImage(`plasma-${i}`);
-      map.addImage(`plasma-${i}`, img);
-      resolve();
-    };
-    img.src = dataUrl;
-  }));
-
-  await Promise.all(promises);
-  console.log('[WWO] Plasma frames loaded:', frames.length);
-}
-
-// Cycle through plasma frames — setInterval not rAF, no need to run at display Hz
-function _animatePlasma() {
-  setInterval(() => {
-    if (!_map || !_plasmaLoaded || !outageVis) return;
-    _plasmaFrame = (_plasmaFrame + 1) % (typeof PLASMA_FRAMES!=="undefined"?PLASMA_FRAMES:16);
-    try {
-      _map.setPaintProperty('outage-hatch', 'fill-pattern', `plasma-${_plasmaFrame}`);
-    } catch(e) {}
-  }, PLASMA_MS);
+function _plasmaWriteFrame(t) {
+  const isNerv = document.body.classList.contains('nerv');
+  const [r,g,b] = isNerv ? [224,112,32] : [1,168,52];
+  const S = PLASMA_SIZE;
+  let i = 0;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const cx = x/S, cy = y/S;
+      let v = Math.sin(cx*6.3+t) + Math.sin(cy*6.3+t*1.31)
+            + Math.sin((cx+cy)*4.1+t*0.79)
+            + Math.sin(Math.sqrt((cx-.5)**2+(cy-.5)**2)*11.7+t*1.09);
+      v = (v + 4) / 8; // normalise 0..1
+      let a = 0;
+      if (v > 0.68) {
+        a = Math.min(220, 160 + ((v-0.68)/0.32*75)|0);
+      } else if (v > 0.28) {
+        const thresh = BAYER[((y%4)*4)+(x%4)] / 16;
+        a = ((v-0.28)/0.40 > thresh) ? 170 : 0;
+      }
+      PLASMA_BUF[i++]=r; PLASMA_BUF[i++]=g; PLASMA_BUF[i++]=b; PLASMA_BUF[i++]=a;
+    }
+  }
 }
 
 // ── Fetch outage data — OONI Explorer API only ───────────────────────────────
@@ -314,9 +321,7 @@ function outageThemeUpdate() {
     _map.setPaintProperty('outage-fill',  'fill-color', isNerv ? '#e07020' : '#01a834');
     _map.setPaintProperty('outage-border','line-color',  isNerv ? '#e07020' : '#01a834');
   } catch(e) {}
-  // Reload plasma frames for new theme colour
-  _plasmaLoaded = false;
-  _loadPlasmaFrames(_map).then(() => { _plasmaLoaded = true; });
+  // Plasma recolours automatically from body.nerv check in _plasmaWriteFrame
   if (outageData.length) _applyOutageData();
 }
 
