@@ -420,8 +420,6 @@ async function refreshLiveFeed(){
 
 // Initial load, then rapid refresh every 60 seconds for near-real-time
 refreshLiveFeed();
-fetchOutages();
-setInterval(fetchOutages,5*60*1000);
 setInterval(refreshLiveFeed,60*1000);// 60s refresh for near-real-time
 
 // Quick Telegram-only refresh every 30s (primary channels only)
