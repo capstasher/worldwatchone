@@ -15,7 +15,7 @@ let _map          = null;
 // ── Init ─────────────────────────────────────────────────────────────────────
 let _plasmaFrame   = 0;
 let _plasmaLoaded  = false;
-const PLASMA_FRAMES = 24;
+// PLASMA_FRAMES defined in plasma-frames.js
 const PLASMA_MS     = 80; // ms per frame (~12fps — smooth but cheap)
 
 function initOutages(map) {
@@ -69,7 +69,7 @@ async function _loadPlasmaFrames(map) {
 function _animatePlasma() {
   setInterval(() => {
     if (!_map || !_plasmaLoaded || !outageVis) return;
-    _plasmaFrame = (_plasmaFrame + 1) % PLASMA_FRAMES;
+    _plasmaFrame = (_plasmaFrame + 1) % (typeof PLASMA_FRAMES!=="undefined"?PLASMA_FRAMES:16);
     try {
       _map.setPaintProperty('outage-hatch', 'fill-pattern', `plasma-${_plasmaFrame}`);
     } catch(e) {}
@@ -186,7 +186,7 @@ async function _applyOutageData() {
       type: 'Feature',
       geometry: _boundaryCache[o.code],
       properties: { fillColor,
-        outageCode:o.code, outageLevel:o.level, outageScore:o.score }
+        outageCode:o.code, outageName:o.name, outageLevel:o.level, outageScore:o.score, ooniRate:o.ooniRate||null }
     }));
 
   console.log('[WWO] Outage polygons rendered:', features.map(f=>f.properties.outageCode));
@@ -217,20 +217,77 @@ function _overpassToGeoJSON(data) {
   const relation = data?.elements?.find(e => e.type === 'relation');
   if (!relation?.members) return null;
 
-  const outerRings = [], innerRings = [];
+  // Separate outer and inner ways — each way is a line segment, not a closed ring
+  const outerWays = [], innerWays = [];
   relation.members.forEach(m => {
     if (m.type !== 'way' || !m.geometry?.length) return;
-    const ring = m.geometry.map(pt => [pt.lon, pt.lat]);
-    if (ring.length < 4) return;
-    const f = ring[0], l = ring[ring.length-1];
-    if (f[0] !== l[0] || f[1] !== l[1]) ring.push([...f]);
-    (m.role === 'inner' ? innerRings : outerRings).push(ring);
+    const pts = m.geometry.map(pt => [pt.lon, pt.lat]);
+    if (pts.length < 2) return;
+    (m.role === 'inner' ? innerWays : outerWays).push(pts);
   });
 
+  if (!outerWays.length) return null;
+
+  // Stitch disconnected ways into closed rings by chaining end→start matches
+  function stitchWays(ways) {
+    const rings = [];
+    let remaining = ways.map(w => [...w]);
+
+    while (remaining.length > 0) {
+      // Start a new ring with the first remaining way
+      let ring = remaining.shift();
+      let changed = true;
+
+      while (changed) {
+        changed = false;
+        const head = ring[0];
+        const tail = ring[ring.length - 1];
+
+        for (let i = 0; i < remaining.length; i++) {
+          const w = remaining[i];
+          const wHead = w[0], wTail = w[w.length - 1];
+          const EPS = 1e-6;
+
+          const tailMatchHead = Math.abs(tail[0]-wHead[0])<EPS && Math.abs(tail[1]-wHead[1])<EPS;
+          const tailMatchTail = Math.abs(tail[0]-wTail[0])<EPS && Math.abs(tail[1]-wTail[1])<EPS;
+          const headMatchTail = Math.abs(head[0]-wTail[0])<EPS && Math.abs(head[1]-wTail[1])<EPS;
+          const headMatchHead = Math.abs(head[0]-wHead[0])<EPS && Math.abs(head[1]-wHead[1])<EPS;
+
+          if (tailMatchHead) {
+            ring = [...ring, ...w.slice(1)];
+          } else if (tailMatchTail) {
+            ring = [...ring, ...[...w].reverse().slice(1)];
+          } else if (headMatchTail) {
+            ring = [...w, ...ring.slice(1)];
+          } else if (headMatchHead) {
+            ring = [[...w].reverse(), ...ring.slice(1)].flat();
+          } else { continue; }
+
+          remaining.splice(i, 1);
+          changed = true;
+          break;
+        }
+      }
+
+      // Close ring if not already closed
+      const f = ring[0], l = ring[ring.length-1];
+      if (Math.abs(f[0]-l[0]) > 1e-6 || Math.abs(f[1]-l[1]) > 1e-6) ring.push([...f]);
+      if (ring.length >= 4) rings.push(ring);
+    }
+    return rings;
+  }
+
+  const outerRings = stitchWays(outerWays);
+  const innerRings = stitchWays(innerWays);
+
   if (!outerRings.length) return null;
-  return outerRings.length === 1
-    ? { type:'Polygon',      coordinates:[outerRings[0], ...innerRings] }
-    : { type:'MultiPolygon', coordinates:outerRings.map(r => [r]) };
+
+  if (outerRings.length === 1) {
+    return { type:'Polygon', coordinates:[outerRings[0], ...innerRings] };
+  } else {
+    // MultiPolygon — assign inner rings to nearest outer
+    return { type:'MultiPolygon', coordinates: outerRings.map(outer => [outer]) };
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
