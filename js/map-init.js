@@ -31,31 +31,18 @@ map.on('load',()=>{
   map.addSource('frontlines',{type:'geojson',data:FRONTLINES});
   // Subtle fill shading — color scales with conflict intensity
   map.addLayer({id:'fronts-fill',type:'fill',source:'frontlines',paint:{
-    'fill-color':['interpolate',['linear'],['get','int'],
-      0.4,'rgba(160,60,0,0.06)',
-      0.65,'rgba(200,40,0,0.10)',
-      0.85,'rgba(230,20,0,0.14)',
-      1.0,'rgba(255,0,0,0.18)'
-    ],
+    'fill-color': 'rgba(255,0,0,0.12)',
     'fill-opacity': 0.25  // pulse animation in conflicts.js will drive this
   }});
   // Dashed frontline perimeter border
   map.addLayer({id:'fronts-line',type:'line',source:'frontlines',paint:{
-    'line-color':['interpolate',['linear'],['get','int'],
-      0.4,'rgba(200,90,0,0.45)',
-      0.65,'rgba(220,50,0,0.58)',
-      0.85,'rgba(240,20,0,0.70)',
-      1.0,'rgba(255,10,0,0.82)'
-    ],
+    'line-color': 'rgba(255,0,0,0.70)',
     'line-width':['interpolate',['linear'],['zoom'],1,1.0,5,1.8,10,2.5],
     'line-dasharray':[5,3.5]
   }});
   // Subtle outer glow line
   map.addLayer({id:'fronts-border',type:'line',source:'frontlines',paint:{
-    'line-color':['interpolate',['linear'],['get','int'],
-      0.4,'rgba(200,80,0,0.08)',
-      1.0,'rgba(255,30,0,0.12)'
-    ],
+    'line-color': 'rgba(255,0,0,0.10)',
     'line-width':['interpolate',['linear'],['zoom'],1,6,5,10,10,16],
     'line-blur':4
   }});
