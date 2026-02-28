@@ -13,74 +13,33 @@ let _map          = null;
 // hatch pattern registered as MapLibre image — no canvas overlay needed
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-let _plasmaT = 0; // plasma time accumulator
-
-const PLASMA_SIZE = 32; // tile px — small enough to update cheaply each frame
-const PLASMA_BUF  = new Uint8Array(PLASMA_SIZE * PLASMA_SIZE * 4); // RGBA
 
 function initOutages(map) {
   _map = map;
 
   map.addSource('outage-zones', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
 
-  // Solid tint base
+  // Pulsing fill — opacity animated via map.on('render') inside MapLibre's own pipeline
   map.addLayer({ id:'outage-fill', type:'fill', source:'outage-zones',
-    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.06 } });
-
-  // Plasma fill-pattern layer
-  map.addLayer({ id:'outage-hatch', type:'fill', source:'outage-zones',
-    paint:{ 'fill-pattern':'plasma', 'fill-opacity':1 } });
+    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.15 } });
 
   // Border
   map.addLayer({ id:'outage-border', type:'line', source:'outage-zones',
     paint:{ 'line-color':['get','fillColor'], 'line-width':1.5, 'line-opacity':0.9 } });
 
-  // Register initial blank image then start animation loop
-  _plasmaWriteFrame(0);
-  map.addImage('plasma', { width:PLASMA_SIZE, height:PLASMA_SIZE, data:PLASMA_BUF }, { pixelRatio:1 });
-
-  // rAF loop — updateImage is cheap (just uploads PLASMA_SIZE² pixels to GPU)
-  let last = 0;
-  function frame(ts) {
-    requestAnimationFrame(frame);
-    if (ts - last < 80) return; // ~12fps cap
-    last = ts;
-    if (!outageVis) return;
-    _plasmaT += 0.08;
-    _plasmaWriteFrame(_plasmaT);
-    if (_map.hasImage('plasma')) _map.updateImage('plasma', { width:PLASMA_SIZE, height:PLASMA_SIZE, data:PLASMA_BUF });
-  }
-  requestAnimationFrame(frame);
+  // Pulse animation — hooked into MapLibre render event, not a separate rAF
+  // Varies fill opacity 0.08↔0.28 with a slow sine wave, triggerRepaint keeps loop alive
+  let pulseT = 0;
+  map.on('render', () => {
+    if (!outageVis || !outageData.length) return;
+    pulseT += 0.018;
+    const opacity = 0.10 + Math.sin(pulseT) * 0.08; // 0.02–0.18
+    try { map.setPaintProperty('outage-fill', 'fill-opacity', opacity); } catch(e) {}
+    map.triggerRepaint();
+  });
 
   fetchOutages();
   setInterval(fetchOutages, OUTAGE_REFRESH_MS);
-}
-
-// Bayer 4×4 ordered dither matrix
-const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
-
-function _plasmaWriteFrame(t) {
-  const isNerv = document.body.classList.contains('nerv');
-  const [r,g,b] = isNerv ? [224,112,32] : [1,168,52];
-  const S = PLASMA_SIZE;
-  let i = 0;
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const cx = x/S, cy = y/S;
-      let v = Math.sin(cx*6.3+t) + Math.sin(cy*6.3+t*1.31)
-            + Math.sin((cx+cy)*4.1+t*0.79)
-            + Math.sin(Math.sqrt((cx-.5)**2+(cy-.5)**2)*11.7+t*1.09);
-      v = (v + 4) / 8; // normalise 0..1
-      let a = 0;
-      if (v > 0.68) {
-        a = Math.min(220, 160 + ((v-0.68)/0.32*75)|0);
-      } else if (v > 0.28) {
-        const thresh = BAYER[((y%4)*4)+(x%4)] / 16;
-        a = ((v-0.28)/0.40 > thresh) ? 170 : 0;
-      }
-      PLASMA_BUF[i++]=r; PLASMA_BUF[i++]=g; PLASMA_BUF[i++]=b; PLASMA_BUF[i++]=a;
-    }
-  }
 }
 
 // ── Fetch outage data — OONI Explorer API only ───────────────────────────────
@@ -220,11 +179,20 @@ async function _fetchBoundary(iso) {
   } catch(e) { console.warn('[WWO] Boundary failed:', iso, e.message); }
 }
 
+// Decimate a ring to at most maxPts vertices using simple stride sampling
+function _decimate(ring, maxPts) {
+  if (ring.length <= maxPts) return ring;
+  const stride = Math.ceil(ring.length / maxPts);
+  const out = [];
+  for (let i = 0; i < ring.length - 1; i += stride) out.push(ring[i]);
+  out.push(ring[0]); // close
+  return out;
+}
+
 function _overpassToGeoJSON(data) {
   const relation = data?.elements?.find(e => e.type === 'relation');
   if (!relation?.members) return null;
 
-  // Separate outer and inner ways — each way is a line segment, not a closed ring
   const outerWays = [], innerWays = [];
   relation.members.forEach(m => {
     if (m.type !== 'way' || !m.geometry?.length) return;
@@ -235,66 +203,61 @@ function _overpassToGeoJSON(data) {
 
   if (!outerWays.length) return null;
 
-  // Stitch disconnected ways into closed rings by chaining end→start matches
   function stitchWays(ways) {
     const rings = [];
+    // Use a map keyed by endpoint coords for O(n) stitching
+    // Build endpoint → way index lookup
+    const EPS = 1e-5;
+    function key(pt) { return `${(pt[0]/EPS|0)},${(pt[1]/EPS|0)}`; }
+
     let remaining = ways.map(w => [...w]);
 
     while (remaining.length > 0) {
-      // Start a new ring with the first remaining way
       let ring = remaining.shift();
-      let changed = true;
+      let grew = true;
 
-      while (changed) {
-        changed = false;
-        const head = ring[0];
+      while (grew) {
+        grew = false;
         const tail = ring[ring.length - 1];
+        const head = ring[0];
+        const tk = key(tail), hk = key(head);
 
         for (let i = 0; i < remaining.length; i++) {
           const w = remaining[i];
-          const wHead = w[0], wTail = w[w.length - 1];
-          const EPS = 1e-6;
+          const wh = key(w[0]), wt = key(w[w.length-1]);
 
-          const tailMatchHead = Math.abs(tail[0]-wHead[0])<EPS && Math.abs(tail[1]-wHead[1])<EPS;
-          const tailMatchTail = Math.abs(tail[0]-wTail[0])<EPS && Math.abs(tail[1]-wTail[1])<EPS;
-          const headMatchTail = Math.abs(head[0]-wTail[0])<EPS && Math.abs(head[1]-wTail[1])<EPS;
-          const headMatchHead = Math.abs(head[0]-wHead[0])<EPS && Math.abs(head[1]-wHead[1])<EPS;
-
-          if (tailMatchHead) {
-            ring = [...ring, ...w.slice(1)];
-          } else if (tailMatchTail) {
-            ring = [...ring, ...[...w].reverse().slice(1)];
-          } else if (headMatchTail) {
-            ring = [...w, ...ring.slice(1)];
-          } else if (headMatchHead) {
-            ring = [[...w].reverse(), ...ring.slice(1)].flat();
+          if (wh === tk) {
+            ring = ring.concat(w.slice(1));
+          } else if (wt === tk) {
+            ring = ring.concat(w.slice(0,-1).reverse());
+          } else if (wt === hk) {
+            ring = w.concat(ring.slice(1));
+          } else if (wh === hk) {
+            ring = w.slice().reverse().concat(ring.slice(1));
           } else { continue; }
 
           remaining.splice(i, 1);
-          changed = true;
+          grew = true;
           break;
         }
       }
 
-      // Close ring if not already closed
       const f = ring[0], l = ring[ring.length-1];
-      if (Math.abs(f[0]-l[0]) > 1e-6 || Math.abs(f[1]-l[1]) > 1e-6) ring.push([...f]);
-      if (ring.length >= 4) rings.push(ring);
+      if (key(f) !== key(l)) ring.push([...f]);
+      // Decimate to max 800 pts per ring to keep tesselator happy
+      const dec = _decimate(ring, 800);
+      if (dec.length >= 4) rings.push(dec);
     }
     return rings;
   }
 
   const outerRings = stitchWays(outerWays);
   const innerRings = stitchWays(innerWays);
-
   if (!outerRings.length) return null;
 
-  if (outerRings.length === 1) {
-    return { type:'Polygon', coordinates:[outerRings[0], ...innerRings] };
-  } else {
-    // MultiPolygon — assign inner rings to nearest outer
-    return { type:'MultiPolygon', coordinates: outerRings.map(outer => [outer]) };
-  }
+  return outerRings.length === 1
+    ? { type:'Polygon',      coordinates: [outerRings[0], ...innerRings] }
+    : { type:'MultiPolygon', coordinates: outerRings.map(r => [r]) };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -321,13 +284,12 @@ function outageThemeUpdate() {
     _map.setPaintProperty('outage-fill',  'fill-color', isNerv ? '#e07020' : '#01a834');
     _map.setPaintProperty('outage-border','line-color',  isNerv ? '#e07020' : '#01a834');
   } catch(e) {}
-  // Plasma recolours automatically from body.nerv check in _plasmaWriteFrame
   if (outageData.length) _applyOutageData();
 }
 
 function setOutageVis(vis) {
   outageVis = vis;
-  if (_map) ['outage-fill','outage-hatch','outage-border'].forEach(id => {
+  if (_map) ['outage-fill','outage-border'].forEach(id => {
     try { _map.setLayoutProperty(id,'visibility', vis?'visible':'none'); } catch(e){}
   });
 }
