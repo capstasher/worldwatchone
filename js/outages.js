@@ -1,234 +1,239 @@
-// ====== NET OUTAGES — real-time internet disruption overlay ======
-// Data:      IODA v2 (CAIDA) via Worker proxy
-// Geometry:  OSM Overpass API admin boundaries via Worker /api/boundary
-// Rendering: canvas hatch+wobble overlay, clipped to exact country shape
+// ====== NET OUTAGES ======
+// Sources: NetBlocks RSS (free, no key) + Cloudflare Radar BGP anomalies
+// Boundaries: OSM Overpass via Worker /api/boundary — exact country shapes
+// Perf: canvas hatch throttled to ~10fps; boundaries cached for session
 
-const OUTAGE_REFRESH_MS = 5 * 60 * 1000; // 5min
+const OUTAGE_REFRESH_MS = 4 * 60 * 1000; // 4min
 
-// Per-country boundary cache (ISO2 → GeoJSON Feature), persists for session
-const _boundaryCache = {};
+const _boundaryCache = {}; // ISO2 → GeoJSON geometry
 
-let outageVis    = true;
-let outageData   = [];      // [{code, name, level, score}]
-let _map         = null;
-let _hatchCanvas = null;
-let _hatchCtx    = null;
-let _hatchFeatures = [];    // GeoJSON features currently rendered
-let _hatchFrame  = 0;
+let outageVis     = true;
+let outageData    = [];
+let _map          = null;
+let _hatchCanvas  = null;
+let _hatchCtx     = null;
+let _hatchFeatures= [];
+let _hatchFrame   = 0;
+let _lastHatchDraw= 0;
+const HATCH_FPS   = 10; // cap canvas redraws
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 function initOutages(map) {
   _map = map;
 
-  map.addSource('outage-zones', {
-    type: 'geojson',
-    data: { type:'FeatureCollection', features:[] }
-  });
-  map.addLayer({
-    id: 'outage-fill', type: 'fill', source: 'outage-zones',
-    paint: { 'fill-color':['get','fillColor'], 'fill-opacity': 0.08 }
-  });
-  map.addLayer({
-    id: 'outage-border', type: 'line', source: 'outage-zones',
-    paint: { 'line-color':['get','fillColor'], 'line-width': 1.5, 'line-opacity': 0.85 }
-  });
+  map.addSource('outage-zones', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
+  map.addLayer({ id:'outage-fill',   type:'fill',   source:'outage-zones',
+    paint:{ 'fill-color':['get','fillColor'], 'fill-opacity':0.08 } });
+  map.addLayer({ id:'outage-border', type:'line',   source:'outage-zones',
+    paint:{ 'line-color':['get','fillColor'], 'line-width':1.5, 'line-opacity':0.9 } });
 
   _initHatchCanvas(map);
   fetchOutages();
   setInterval(fetchOutages, OUTAGE_REFRESH_MS);
 }
 
-// ── Fetch IODA outage data via Worker proxy ───────────────────────────────────
+// ── Fetch outage data ─────────────────────────────────────────────────────────
+// Primary:   NetBlocks RSS  →  parse affected countries from incident titles
+// Secondary: Cloudflare Radar BGP anomaly feed
 async function fetchOutages() {
+  _setNetStatus('NET: SYNCING', 'var(--warning)');
+
+  const found = await _tryNetBlocks() || await _tryCloudflareRadar();
+
+  if (found) {
+    _setNetStatus(`NET: ${outageData.length} OUTAGE${outageData.length!==1?'S':''}`,
+      outageData.length > 0 ? 'var(--accent)' : 'var(--text-dim)');
+  } else {
+    _setNetStatus('NET: ERROR', '#ff2222');
+    // Clear existing display but don't crash
+    outageData = [];
+    _setMapData([]);
+    _updateOutageCounter();
+  }
+}
+
+async function _tryNetBlocks() {
+  // NetBlocks publishes free incident RSS — titles contain country names
+  const url = 'https://netblocks.org/feed';
   try {
-    const r = await fetch(`${PROXY_BASE}/api/outages`, {
-      signal: AbortSignal.timeout(30000)
-    });
-    if (!r.ok) throw new Error(`Worker returned ${r.status}`);
-    const text = await r.text();
-    console.log('[WWO] IODA raw (first 500):', text.slice(0, 500));
-    const d = JSON.parse(text);
-    _parseAndApply(d);
+    const r = await fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(url)}`,
+      { signal: AbortSignal.timeout(12000) });
+    if (!r.ok) return false;
+    const xml = await r.text();
+    if (xml.length < 100) return false;
+
+    const items = _parseRSSItems(xml);
+    const countries = _extractCountriesFromItems(items);
+    console.log('[WWO] NetBlocks items:', items.length, '→ countries:', countries.map(c=>c.code));
+
+    outageData = countries;
+    await _applyOutageData();
+    return true;
   } catch(e) {
-    console.warn('[WWO] IODA fetch failed:', e.message);
-    // Static fallback — shows confirmed long-term outages for visual testing
-    _parseAndApply({ _static: true, outages: [
-      { code:'IR', name:'Iran',        level:'critical' },
-      { code:'RU', name:'Russia',      level:'warning'  },
-      { code:'CU', name:'Cuba',        level:'warning'  },
-      { code:'KP', name:'North Korea', level:'critical' },
-      { code:'SY', name:'Syria',       level:'warning'  },
-    ]});
+    console.warn('[WWO] NetBlocks failed:', e.message);
+    return false;
   }
 }
 
-// ── Parse IODA response (handles multiple API shapes) and apply ───────────────
-function _parseAndApply(d) {
-  // If static fallback, use directly
-  if (d._static) {
-    outageData = d.outages.map(o => ({...o, score: o.level === 'critical' ? 3 : 2}));
-    _applyOutageData();
-    return;
-  }
+async function _tryCloudflareRadar() {
+  // Cloudflare Radar routing anomalies — free, no key needed for summary
+  const url = 'https://radar.cloudflare.com/api/v4/radar/bgp/hijacks/events?dateRange=1d&format=json';
+  try {
+    const r = await fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(url)}`,
+      { signal: AbortSignal.timeout(12000) });
+    if (!r.ok) return false;
+    const d = await r.json();
+    const events = d?.result?.asn_events || d?.result?.events || [];
 
-  const byCountry = new Map();
-
-  function tryIngest(arr) {
-    if (!Array.isArray(arr)) return;
-    arr.forEach(item => {
-      // Pull entity info from multiple possible shapes
-      const entity   = item.entity || item;
-      const type     = (entity.type || entity.entityType || '').toLowerCase();
-      // Accept if type is country or not specified (let code length filter)
-      if (type && type !== 'country') return;
-
-      let code = (entity.code || entity.entityCode || entity.iso ||
-                  item.code  || item.entityCode   || '').toUpperCase();
-      // IODA sometimes uses "country.IR" format
-      code = code.replace(/^[A-Z]+\./, '');
-      if (!code || code.length !== 2 || !/^[A-Z]{2}$/.test(code)) return;
-
-      const name = entity.name || entity.entityName || item.name || code;
-
-      // Severity: string level takes priority, then numeric score
-      let level = (item.level || item.alertLevel || entity.level || '').toLowerCase();
-      let score;
-      if      (level === 'critical')             score = 3;
-      else if (level === 'warning' || level === 'warn') score = 2;
-      else {
-        let s = item.overallScore ?? item.score ?? item.magnitude
-             ?? item.meanNormalizedSignal ?? -1;
-        if (typeof s === 'number' && s > 1) s /= 100;
-        if      (s > 0.65) { score = 3; level = 'critical'; }
-        else if (s > 0.25) { score = 2; level = 'warning';  }
-        else                { score = 1; level = 'normal';   }
-      }
-
-      if (!byCountry.has(code) || byCountry.get(code).score < score)
-        byCountry.set(code, { code, name, level, score });
+    // Extract country codes from BGP events
+    const byCode = new Map();
+    events.forEach(ev => {
+      const code = (ev.country || ev.originCountry || '').toUpperCase();
+      if (code.length !== 2) return;
+      if (!byCode.has(code)) byCode.set(code, { code, name: code, level: 'warning', score: 2 });
     });
+
+    if (byCode.size === 0) return false;
+    outageData = [...byCode.values()];
+    console.log('[WWO] CF Radar BGP events:', events.length, '→ countries:', outageData.map(c=>c.code));
+    await _applyOutageData();
+    return true;
+  } catch(e) {
+    console.warn('[WWO] CF Radar failed:', e.message);
+    return false;
   }
-
-  // Try every plausible envelope
-  [d, d?.data, d?.result, d?.data?.alerts, d?.data?.outages,
-   d?.alerts, d?.outages, d?.events, d?.data?.events
-  ].forEach(v => tryIngest(Array.isArray(v) ? v : v ? [v] : []));
-
-  const top  = Object.keys(d || {});
-  const dTyp = Array.isArray(d?.data) ? `array[${d.data.length}]` : typeof d?.data;
-  console.log(`[WWO] IODA shape: ${JSON.stringify(top)}, data: ${dTyp}, mapped: ${byCountry.size}`);
-
-  outageData = [...byCountry.values()].filter(c => c.score >= 2);
-  console.log('[WWO] Outages warning+:', outageData.map(c => `${c.code}(${c.level})`));
-
-  _applyOutageData();
 }
 
-// ── Resolve country codes → accurate OSM polygons, then render ────────────────
+// ── Parse RSS XML into items ──────────────────────────────────────────────────
+function _parseRSSItems(xml) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+  const items = [];
+  doc.querySelectorAll('item').forEach(el => {
+    const title = el.querySelector('title')?.textContent || '';
+    const desc  = el.querySelector('description')?.textContent || '';
+    const date  = el.querySelector('pubDate')?.textContent || '';
+    const link  = el.querySelector('link')?.textContent || '';
+    items.push({ title, desc, date, link });
+  });
+  return items;
+}
+
+// ── Extract country codes from NetBlocks-style incident text ──────────────────
+// NetBlocks titles like: "Iran internet disrupted amid protests"
+// or: "#NetBlocks reports major outage in Venezuela"
+const COUNTRY_NAME_MAP = {
+  'iran':'IR','russia':'RU','ukraine':'UA','cuba':'CU','north korea':'KP',
+  'syria':'SY','ethiopia':'ET','myanmar':'MM','belarus':'BY','turkmenistan':'TM',
+  'pakistan':'PK','bangladesh':'BD','nigeria':'NG','sudan':'SD','venezuela':'VE',
+  'afghanistan':'AF','india':'IN','china':'CN','turkey':'TR','egypt':'EG',
+  'iraq':'IQ','libya':'LY','azerbaijan':'AZ','kazakhstan':'KZ','uzbekistan':'UZ',
+  'tajikistan':'TJ','kyrgyzstan':'KG','cambodia':'KH','laos':'LA','senegal':'SN',
+  'mali':'ML','guinea':'GN','mauritania':'MR','chad':'TD','niger':'NE',
+  'eritrea':'ER','zimbabwe':'ZW','ethiopia':'ET','somalia':'SO','myanmar':'MM',
+  'burma':'MM','venezuela':'VE','nicaragua':'NI','haiti':'HT','cameroon':'CM',
+  'indonesia':'ID','brazil':'BR','mexico':'MX','colombia':'CO','argentina':'AR',
+  'peru':'PE','kazakhstan':'KZ','gabon':'GA','togo':'TG','rwanda':'RW',
+  'drc':'CD','congo':'CG','mozambique':'MZ','zambia':'ZM','angola':'AO',
+  'mauritius':'MU','eswatini':'SZ','lesotho':'LS','namibia':'NA','botswana':'BW',
+  'tanzania':'TZ','kenya':'KE','uganda':'UG','ghana':'GH','senegal':'SN',
+  'burkina faso':'BF','ivory coast':'CI','benin':'BJ','tonga':'TO',
+};
+
+function _extractCountriesFromItems(items) {
+  const found = new Map();
+  const cutoff = Date.now() - 7 * 24 * 3600 * 1000; // last 7 days
+
+  items.forEach(item => {
+    const pubDate = new Date(item.date).getTime();
+    if (pubDate && pubDate < cutoff) return; // skip old items
+
+    const text = (item.title + ' ' + item.desc).toLowerCase();
+
+    // Direct ISO2 code mentions e.g. "#Iran" or "in Iran"
+    for (const [name, code] of Object.entries(COUNTRY_NAME_MAP)) {
+      if (text.includes(name)) {
+        const severity = text.includes('disrupted') || text.includes('outage') ||
+                         text.includes('shutdown') || text.includes('blackout')
+          ? (text.includes('total') || text.includes('complete') || text.includes('major') ? 'critical' : 'warning')
+          : 'warning';
+        const score = severity === 'critical' ? 3 : 2;
+        if (!found.has(code) || found.get(code).score < score)
+          found.set(code, { code, name: name.charAt(0).toUpperCase()+name.slice(1), level: severity, score });
+      }
+    }
+  });
+
+  return [...found.values()];
+}
+
+// ── Fetch OSM boundaries + render ─────────────────────────────────────────────
 async function _applyOutageData() {
   _updateOutageCounter();
-
-  if (outageData.length === 0) {
-    _setMapData([]);
-    return;
-  }
+  if (outageData.length === 0) { _setMapData([]); return; }
 
   const isNerv    = document.body.classList.contains('nerv');
   const fillColor = isNerv ? '#e07020' : '#01a834';
 
-  // Fetch OSM boundaries for any code not yet cached (parallel)
+  // Fetch missing boundaries in parallel
   const needed = outageData.filter(o => !_boundaryCache[o.code]);
-  if (needed.length > 0) {
-    console.log('[WWO] Fetching OSM boundaries for:', needed.map(o => o.code));
+  if (needed.length) {
     await Promise.allSettled(needed.map(o => _fetchBoundary(o.code)));
   }
 
-  // Build feature collection from cache
-  const features = [];
-  for (const o of outageData) {
-    const cached = _boundaryCache[o.code];
-    if (cached) {
-      // cached is a GeoJSON geometry (Polygon or MultiPolygon)
-      features.push({
-        type: 'Feature',
-        geometry: cached,
-        properties: { fillColor, outageCode: o.code, outageLevel: o.level, outageScore: o.score }
-      });
-    } else {
-      console.warn('[WWO] No boundary for', o.code, '— skipping');
-    }
-  }
+  const features = outageData
+    .filter(o => _boundaryCache[o.code])
+    .map(o => ({
+      type: 'Feature',
+      geometry: _boundaryCache[o.code],
+      properties: { fillColor, outageCode:o.code, outageLevel:o.level, outageScore:o.score }
+    }));
 
-  console.log('[WWO] Rendering', features.length, 'outage polygons');
+  console.log('[WWO] Outage polygons rendered:', features.map(f=>f.properties.outageCode));
   _setMapData(features);
 
-  // Feed injection for critical outages
+  // OSINT feed injection
   outageData.filter(c => c.score >= 3).forEach(c => {
-    addLiveItem(`🔌 INTERNET OUTAGE — ${c.name}`, 'IODA/CAIDA',
-      new Date().toISOString(), 'https://ioda.live', 'CYBER', 'al', false);
+    addLiveItem(`🔌 INTERNET OUTAGE — ${c.name}`, 'NetBlocks',
+      new Date().toISOString(), 'https://netblocks.org', 'CYBER', 'al', false);
   });
 }
 
-// ── Fetch single country boundary from Worker → Overpass OSM ─────────────────
+// ── Fetch one country boundary via Worker → Overpass OSM ─────────────────────
 async function _fetchBoundary(iso) {
-  if (_boundaryCache[iso]) return; // already have it
+  if (_boundaryCache[iso]) return;
   try {
-    const r = await fetch(`${PROXY_BASE}/api/boundary?iso=${iso}`, {
-      signal: AbortSignal.timeout(30000)
-    });
-    if (!r.ok) throw new Error(`boundary ${r.status}`);
+    const r = await fetch(`${PROXY_BASE}/api/boundary?iso=${iso}`,
+      { signal: AbortSignal.timeout(25000) });
+    if (!r.ok) throw new Error(r.status);
     const data = await r.json();
-    // Overpass returns {elements:[{type:'relation', members:[{type:'way', geometry:[{lat,lon},...]},...]}]}
-    const geom = _overpassToGeoJSON(data, iso);
-    if (geom) {
-      _boundaryCache[iso] = geom;
-      console.log(`[WWO] OSM boundary cached: ${iso} (${geom.type})`);
-    } else {
-      console.warn(`[WWO] No geometry parsed for ${iso}`);
-    }
-  } catch(e) {
-    console.warn(`[WWO] Boundary fetch failed for ${iso}:`, e.message);
-  }
+    const geom = _overpassToGeoJSON(data);
+    if (geom) { _boundaryCache[iso] = geom; console.log('[WWO] Boundary cached:', iso); }
+    else console.warn('[WWO] No geometry for', iso);
+  } catch(e) { console.warn('[WWO] Boundary failed:', iso, e.message); }
 }
 
-// ── Convert Overpass JSON → GeoJSON geometry ──────────────────────────────────
-function _overpassToGeoJSON(data, iso) {
-  const elements = data?.elements;
-  if (!elements?.length) return null;
-
-  // Find the relation element (the country boundary relation)
-  const relation = elements.find(e => e.type === 'relation');
+function _overpassToGeoJSON(data) {
+  const relation = data?.elements?.find(e => e.type === 'relation');
   if (!relation?.members) return null;
 
-  // Collect outer ways as coordinate rings
-  const outerRings = [];
-  const innerRings = [];
-
-  relation.members.forEach(member => {
-    if (member.type !== 'way' || !member.geometry?.length) return;
-    // Convert [{lat,lon}] → [lon,lat] pairs
-    const ring = member.geometry.map(pt => [pt.lon, pt.lat]);
+  const outerRings = [], innerRings = [];
+  relation.members.forEach(m => {
+    if (m.type !== 'way' || !m.geometry?.length) return;
+    const ring = m.geometry.map(pt => [pt.lon, pt.lat]);
     if (ring.length < 4) return;
-    // Close ring if not already closed
-    const first = ring[0], last = ring[ring.length - 1];
-    if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
-
-    if (member.role === 'outer' || member.role === '') outerRings.push(ring);
-    else if (member.role === 'inner') innerRings.push(ring);
+    const f = ring[0], l = ring[ring.length-1];
+    if (f[0] !== l[0] || f[1] !== l[1]) ring.push([...f]);
+    (m.role === 'inner' ? innerRings : outerRings).push(ring);
   });
 
-  if (outerRings.length === 0) return null;
-
-  // Assemble rings: each outer + its inner holes into a Polygon
-  // For simplicity: one MultiPolygon with all outers, no holes (holes are rare at country level)
-  if (outerRings.length === 1) {
-    return { type: 'Polygon', coordinates: [outerRings[0], ...innerRings] };
-  } else {
-    return { type: 'MultiPolygon', coordinates: outerRings.map(outer => [outer]) };
-  }
+  if (!outerRings.length) return null;
+  return outerRings.length === 1
+    ? { type:'Polygon',      coordinates:[outerRings[0], ...innerRings] }
+    : { type:'MultiPolygon', coordinates:outerRings.map(r => [r]) };
 }
 
-// ── Push features to MapLibre source + hatch canvas ──────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function _setMapData(features) {
   if (!_map) return;
   const src = _map.getSource('outage-zones');
@@ -241,23 +246,21 @@ function _updateOutageCounter() {
   if (el) el.textContent = outageData.length;
 }
 
-// ── Theme switch (NERV/CTRL) ──────────────────────────────────────────────────
-function outageThemeUpdate() {
-  if (outageData.length > 0) _applyOutageData();
+function _setNetStatus(text, color) {
+  const el = document.getElementById('net-status');
+  if (el) { el.textContent = text; el.style.color = color; }
 }
 
-// ── Layer visibility toggle ───────────────────────────────────────────────────
+function outageThemeUpdate() { if (outageData.length) _applyOutageData(); }
+
 function setOutageVis(vis) {
   outageVis = vis;
-  if (_map) {
-    ['outage-fill','outage-border'].forEach(id => {
-      try { _map.setLayoutProperty(id,'visibility', vis ? 'visible' : 'none'); } catch(e) {}
-    });
-  }
-  // Canvas hatch respects outageVis via _drawHatch check
+  if (_map) ['outage-fill','outage-border'].forEach(id => {
+    try { _map.setLayoutProperty(id,'visibility', vis?'visible':'none'); } catch(e){}
+  });
 }
 
-// ── Canvas hatch+wobble overlay ───────────────────────────────────────────────
+// ── Canvas hatch+wobble — throttled to HATCH_FPS ─────────────────────────────
 function _initHatchCanvas(map) {
   const container = map.getContainer();
   _hatchCanvas = document.createElement('canvas');
@@ -273,88 +276,66 @@ function _initHatchCanvas(map) {
   window.addEventListener('resize', resize);
   map.on('resize', resize);
 
-  (function frame() { requestAnimationFrame(frame); _drawHatch(); })();
+  (function frame(ts) {
+    requestAnimationFrame(frame);
+    if (ts - _lastHatchDraw < 1000 / HATCH_FPS) return;
+    _lastHatchDraw = ts;
+    _drawHatch();
+  })(0);
 }
 
 function _drawHatch() {
   if (!_hatchCtx || !_map) return;
-  const ctx = _hatchCtx;
-  const W   = _hatchCanvas.width;
-  const H   = _hatchCanvas.height;
+  const ctx = _hatchCtx, W = _hatchCanvas.width, H = _hatchCanvas.height;
   ctx.clearRect(0, 0, W, H);
-  if (!outageVis || _hatchFeatures.length === 0) return;
+  if (!outageVis || !_hatchFeatures.length) return;
 
-  const t      = _hatchFrame++ * 0.016;
+  const t      = _hatchFrame++ * 0.1; // advance slower since we're throttled
   const isNerv = document.body.classList.contains('nerv');
-  const colA   = isNerv ? 'rgba(224,112,32,0.55)' : 'rgba(1,168,52,0.55)';
-  const spacing = 8;
+  const col    = isNerv ? 'rgba(224,112,32,0.55)' : 'rgba(1,168,52,0.55)';
+  const spacing = 9;
 
-  _hatchFeatures.forEach(feature => {
-    const geom = feature.geometry;
+  _hatchFeatures.forEach(feat => {
+    const geom = feat.geometry;
     if (!geom) return;
-
-    // Collect all rings (Polygon or MultiPolygon)
-    const allRings = geom.type === 'Polygon'
-      ? geom.coordinates
-      : geom.type === 'MultiPolygon'
-        ? geom.coordinates.flat(1)
-        : [];
+    const allRings = geom.type === 'Polygon'      ? geom.coordinates
+                   : geom.type === 'MultiPolygon' ? geom.coordinates.flat(1) : [];
 
     allRings.forEach(ring => {
-      // Project lon/lat → screen px
       const pts = [];
-      for (const [lon, lat] of ring) {
-        try {
-          const p = _map.project([lon, lat]);
-          pts.push(p);
-        } catch(e) { /* off-globe */ }
+      for (const [lon,lat] of ring) {
+        try { pts.push(_map.project([lon,lat])); } catch(e) {}
       }
       if (pts.length < 3) return;
 
-      // Bounding box of this ring on screen
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
       for (const p of pts) {
-        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+        if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+        if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
       }
-
-      // Skip rings entirely off-screen
-      if (maxX < 0 || minX > W || maxY < 0 || minY > H) return;
-      // Clamp to canvas
-      minX = Math.max(minX, 0); minY = Math.max(minY, 0);
-      maxX = Math.min(maxX, W); maxY = Math.min(maxY, H);
+      if (maxX<0||minX>W||maxY<0||minY>H) return;
 
       ctx.save();
-
-      // Clip path from projected polygon ring
       ctx.beginPath();
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
       ctx.closePath();
       ctx.clip();
 
-      // Animated diagonal hatching at 45° with per-line sine wobble
-      ctx.strokeStyle = colA;
+      ctx.strokeStyle = col;
       ctx.lineWidth   = 1;
-
-      const diag = (maxX - minX) + (maxY - minY);
+      const diag = (maxX-minX)+(maxY-minY);
       for (let k = -diag; k < diag; k += spacing) {
         ctx.beginPath();
-        // Walk down the 45° line in small steps, displacing x by wobble
-        const y0   = minY;
-        const y1   = maxY;
-        const steps = Math.max(3, Math.ceil((y1 - y0) / 4));
-        for (let s = 0; s <= steps; s++) {
-          const frac   = s / steps;
-          const y      = y0 + (y1 - y0) * frac;
-          const x      = minX + k + (y - minY); // 45° offset
-          // Wobble: horizontal displacement that pulses along the line
-          const wobble = Math.sin(t * 1.8 + y * 0.055 + k * 0.04) * 4;
-          if (s === 0) ctx.moveTo(x + wobble, y);
-          else         ctx.lineTo(x + wobble, y);
+        const steps = Math.max(2, Math.ceil((maxY-minY)/5));
+        for (let s=0; s<=steps; s++) {
+          const frac = s/steps;
+          const y    = minY + (maxY-minY)*frac;
+          const x    = minX + k + (y-minY);
+          const wb   = Math.sin(t + y*0.06 + k*0.04) * 4;
+          s ? ctx.lineTo(x+wb,y) : ctx.moveTo(x+wb,y);
         }
         ctx.stroke();
       }
-
       ctx.restore();
     });
   });
