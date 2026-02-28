@@ -14,9 +14,9 @@ const CONF_ZONE_KEYS = {
   'Luhansk':         'rel:71971',
   'Zaporizhzhia':    'rel:71980',
   'Kherson':         'rel:71022',
-  'Kharkiv':         'rel:72640',   // corrected — 7500774 is a different entity
-  'Sumy':            'rel:72643',
-  'Crimea':          'rel:2634673',
+  'Kharkiv':         'rel:71254',
+  'Sumy':            'rel:71250',
+  'Crimea':          'rel:72639',
   'Kursk':           'rel:176017',
 
   // ── Iran / Operation Epic Fury ────────────────────────────────────────────
@@ -34,7 +34,7 @@ const CONF_ZONE_KEYS = {
   // ── Israel / Palestine ────────────────────────────────────────────────────
   'Israel':          'IL',
   'Gaza':            'rel:1473938',
-  'West Bank':       'rel:1613659',
+  'West Bank':       'rel:1803010',
 
   // ── Lebanon ───────────────────────────────────────────────────────────────
   'South Lebanon':   'rel:2178721',
@@ -86,9 +86,10 @@ const CONF_ZONE_KEYS = {
   // ── Mozambique ────────────────────────────────────────────────────────────
   'Cabo Delgado':    'rel:2400484',
 
-  // ── Pakistan ──────────────────────────────────────────────────────────────
+  // ── Pakistan / Afghanistan ────────────────────────────────────────────────
   'KP Pakistan':     'rel:3244185',
   'Balochistan':     'rel:3244181',
+  'Afghanistan':     'AF',
 
   // ── Taiwan / SCS ──────────────────────────────────────────────────────────
   'Taiwan':          'TW',
@@ -124,7 +125,7 @@ const REGION_ZONE_MAP = {
   'Ethiopia':     ['Amhara Region','Tigray Region'],
   'South Sudan':  ['South Sudan'],
   'Mozambique':   ['Cabo Delgado'],
-  'Pakistan':     ['KP Pakistan','Balochistan'],
+  'Pakistan':     ['KP Pakistan','Balochistan','Afghanistan'],
   'Taiwan Strait':['Taiwan'],
   'SCS':          ['Taiwan'],
   'Haiti':        ['Haiti'],
@@ -172,7 +173,9 @@ function _confToGeoJSON(data, zoneName) {
     if (m.type !== 'way' || !m.geometry?.length) return;
     const pts = m.geometry.map(pt => [pt.lon, pt.lat]);
     if (pts.length < 2) return;
-    (m.role === 'inner' ? innerWays : outerWays).push(pts);
+    if (m.role === 'inner') innerWays.push(pts);
+    else if (m.role === 'outer' || m.role === '') outerWays.push(pts);
+    // ignore sub-relation members and any other roles
   });
   if (!outerWays.length) return null;
 
@@ -208,10 +211,7 @@ function _confToGeoJSON(data, zoneName) {
   }
 
   const outerRings = stitch(outerWays);
-  // Some zones (West Bank) have hundreds of inner settlement polygons that
-  // render as visible fills — strip them and keep the outer boundary only
-  const stripInners = ['West Bank'];
-  const innerRings = stripInners.includes(zoneName) ? [] : stitch(innerWays);
+  const innerRings = stitch(innerWays);
   if (!outerRings.length) return null;
 
   if (outerRings.length === 1) {
