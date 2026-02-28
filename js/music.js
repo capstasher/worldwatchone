@@ -92,8 +92,9 @@ function mpLoad(idx){
   mpAudio.load();
   mpUpdateUI();
   mpUpdateProgress();
-  // Try to read ID3 metadata
-  mpReadMeta(track.url, mpQueue[mpIdx]);
+  // Note: mpReadMeta disabled — catbox.moe CORS policy can poison the browser's
+  // CORS cache for the URL, causing the <audio> element to also fail to load.
+  // Track titles/artists are set directly in the MP_TRACKS array above instead.
 }
 
 function mpPlay(){
@@ -275,4 +276,3 @@ document.addEventListener('click',e=>{
     }
   },500);
 })();
-
