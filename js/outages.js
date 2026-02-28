@@ -4,8 +4,6 @@
 // Effect: animated hatched fill + wobble shader, constrained within polygon borders
 
 const OUTAGE_REFRESH_MS = 5 * 60 * 1000; // 5min
-const PROXY_BASE = window.WWO_PROXY || 'https://wwo-proxy.capstasher.workers.dev';
-
 // ISO2 → approx bounding box centre [lon, lat] for flyTo
 // Full country GeoJSON for polygon fill comes from a free CDN source
 const COUNTRY_CENTROIDS = {
