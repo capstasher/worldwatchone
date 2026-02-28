@@ -1,5 +1,5 @@
 // ====== NET OUTAGES ======
-// Sources: NetBlocks RSS (free, no key) + Cloudflare Radar BGP anomalies
+// Source: OONI Explorer API — live probe-confirmed interference by country
 // Boundaries: OSM Overpass via Worker /api/boundary — exact country shapes
 // Perf: canvas hatch throttled to ~10fps; boundaries cached for session
 
@@ -32,141 +32,95 @@ function initOutages(map) {
   setInterval(fetchOutages, OUTAGE_REFRESH_MS);
 }
 
-// ── Fetch outage data ─────────────────────────────────────────────────────────
-// Primary:   NetBlocks RSS  →  parse affected countries from incident titles
-// Secondary: Cloudflare Radar BGP anomaly feed
+// ── Fetch outage data — OONI Explorer API only ───────────────────────────────
 async function fetchOutages() {
   _setNetStatus('NET: SYNCING', 'var(--warning)');
-
-  const found = await _tryNetBlocks() || await _tryCloudflareRadar();
-
-  if (found) {
-    _setNetStatus(`NET: ${outageData.length} OUTAGE${outageData.length!==1?'S':''}`,
-      outageData.length > 0 ? 'var(--accent)' : 'var(--text-dim)');
-  } else {
+  const result = await _fetchOONI();
+  if (result === null) {
     _setNetStatus('NET: ERROR', '#ff2222');
-    // Clear existing display but don't crash
-    outageData = [];
-    _setMapData([]);
-    _updateOutageCounter();
-  }
-}
-
-async function _tryNetBlocks() {
-  // NetBlocks publishes free incident RSS — titles contain country names
-  const url = 'https://netblocks.org/feed';
-  try {
-    const r = await fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(url)}`,
-      { signal: AbortSignal.timeout(12000) });
-    if (!r.ok) return false;
-    const xml = await r.text();
-    if (xml.length < 100) return false;
-
-    const items = _parseRSSItems(xml);
-    const countries = _extractCountriesFromItems(items);
-    console.log('[WWO] NetBlocks items:', items.length, '→ countries:', countries.map(c=>c.code));
-    console.log('[WWO] NetBlocks titles:', items.map(i=>i.title));
-
-    outageData = countries;
+    outageData = []; _setMapData([]); _updateOutageCounter();
+  } else {
+    outageData = result;
     await _applyOutageData();
-    return true;
-  } catch(e) {
-    console.warn('[WWO] NetBlocks failed:', e.message);
-    return false;
+    _setNetStatus(
+      outageData.length > 0 ? `NET: ${outageData.length} OUTAGE${outageData.length!==1?'S':''}` : 'NET: CLEAR',
+      outageData.length > 0 ? 'var(--accent)' : 'var(--text-dim)'
+    );
   }
 }
 
-async function _tryCloudflareRadar() {
-  // Cloudflare Radar routing anomalies — free, no key needed for summary
-  const url = 'https://radar.cloudflare.com/api/v4/radar/bgp/hijacks/events?dateRange=1d&format=json';
+// OONI Explorer API — country-level anomaly summary, last 24h
+// Returns countries where >30% of measurements show anomalies
+async function _fetchOONI() {
+  const since = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+  const until = new Date().toISOString().slice(0,10);
+  // OONI aggregation endpoint — one row per country with anomaly counts
+  const url = `https://api.ooni.io/api/v1/aggregation?since=${since}&until=${until}&axis_x=probe_cc&test_name=web_connectivity&format=JSON`;
   try {
     const r = await fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(url)}`,
-      { signal: AbortSignal.timeout(12000) });
-    if (!r.ok) return false;
+      { signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-    const events = d?.result?.asn_events || d?.result?.events || [];
+    const rows = d?.result || d?.data || [];
+    console.log('[WWO] OONI rows:', rows.length);
 
-    // Extract country codes from BGP events
-    const byCode = new Map();
-    events.forEach(ev => {
-      const code = (ev.country || ev.originCountry || '').toUpperCase();
-      if (code.length !== 2) return;
-      if (!byCode.has(code)) byCode.set(code, { code, name: code, level: 'warning', score: 2 });
+    const found = [];
+    rows.forEach(row => {
+      const code  = (row.probe_cc || '').toUpperCase();
+      if (!code || code.length !== 2) return;
+      const total = row.measurement_count || 0;
+      const anom  = row.anomaly_count || 0;
+      if (total < 5) return; // too few probes to be meaningful
+      const rate = anom / total;
+      if (rate < 0.3) return; // below 30% anomaly threshold
+      const level = rate > 0.7 ? 'critical' : 'warning';
+      const score = rate > 0.7 ? 3 : 2;
+      const name  = ISO2_NAMES[code] || code;
+      found.push({ code, name, level, score, ooniRate: rate });
     });
 
-    if (byCode.size === 0) return false;
-    outageData = [...byCode.values()];
-    console.log('[WWO] CF Radar BGP events:', events.length, '→ countries:', outageData.map(c=>c.code));
-    await _applyOutageData();
-    return true;
+    console.log('[WWO] OONI confirmed anomalies:', found.map(f=>`${f.code}(${(f.ooniRate*100).toFixed(0)}%)`));
+    return found;
   } catch(e) {
-    console.warn('[WWO] CF Radar failed:', e.message);
-    return false;
+    console.warn('[WWO] OONI failed:', e.message);
+    return null;
   }
 }
 
-// ── Parse RSS XML into items ──────────────────────────────────────────────────
-function _parseRSSItems(xml) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'text/xml');
-  const items = [];
-  doc.querySelectorAll('item').forEach(el => {
-    const title = el.querySelector('title')?.textContent || '';
-    const desc  = el.querySelector('description')?.textContent || '';
-    const date  = el.querySelector('pubDate')?.textContent || '';
-    const link  = el.querySelector('link')?.textContent || '';
-    items.push({ title, desc, date, link });
-  });
-  return items;
-}
-
-// ── Extract country codes from NetBlocks-style incident text ──────────────────
-// NetBlocks titles like: "Iran internet disrupted amid protests"
-// or: "#NetBlocks reports major outage in Venezuela"
-const COUNTRY_NAME_MAP = {
-  'iran':'IR','russia':'RU','ukraine':'UA','cuba':'CU','north korea':'KP',
-  'syria':'SY','ethiopia':'ET','myanmar':'MM','belarus':'BY','turkmenistan':'TM',
-  'pakistan':'PK','bangladesh':'BD','nigeria':'NG','sudan':'SD','venezuela':'VE',
-  'afghanistan':'AF','india':'IN','china':'CN','turkey':'TR','egypt':'EG',
-  'iraq':'IQ','libya':'LY','azerbaijan':'AZ','kazakhstan':'KZ','uzbekistan':'UZ',
-  'tajikistan':'TJ','kyrgyzstan':'KG','cambodia':'KH','laos':'LA','senegal':'SN',
-  'mali':'ML','guinea':'GN','mauritania':'MR','chad':'TD','niger':'NE',
-  'eritrea':'ER','zimbabwe':'ZW','ethiopia':'ET','somalia':'SO','myanmar':'MM',
-  'burma':'MM','venezuela':'VE','nicaragua':'NI','haiti':'HT','cameroon':'CM',
-  'indonesia':'ID','brazil':'BR','mexico':'MX','colombia':'CO','argentina':'AR',
-  'peru':'PE','kazakhstan':'KZ','gabon':'GA','togo':'TG','rwanda':'RW',
-  'drc':'CD','congo':'CG','mozambique':'MZ','zambia':'ZM','angola':'AO',
-  'mauritius':'MU','eswatini':'SZ','lesotho':'LS','namibia':'NA','botswana':'BW',
-  'tanzania':'TZ','kenya':'KE','uganda':'UG','ghana':'GH','senegal':'SN',
-  'burkina faso':'BF','ivory coast':'CI','benin':'BJ','tonga':'TO',
+// ISO2 → display name (for OONI results that only give code)
+const ISO2_NAMES = {
+  AF:'Afghanistan',AL:'Albania',AM:'Armenia',AO:'Angola',AR:'Argentina',
+  AT:'Austria',AU:'Australia',AZ:'Azerbaijan',BA:'Bosnia',BD:'Bangladesh',
+  BE:'Belgium',BF:'Burkina Faso',BG:'Bulgaria',BI:'Burundi',BJ:'Benin',
+  BO:'Bolivia',BR:'Brazil',BY:'Belarus',CA:'Canada',CD:'DR Congo',
+  CF:'C. African Rep.',CG:'Congo',CH:'Switzerland',CI:'Ivory Coast',
+  CL:'Chile',CM:'Cameroon',CN:'China',CO:'Colombia',CR:'Costa Rica',
+  CU:'Cuba',CY:'Cyprus',CZ:'Czechia',DE:'Germany',DJ:'Djibouti',
+  DK:'Denmark',DZ:'Algeria',EC:'Ecuador',EE:'Estonia',EG:'Egypt',
+  ER:'Eritrea',ES:'Spain',ET:'Ethiopia',FI:'Finland',FR:'France',
+  GA:'Gabon',GB:'UK',GE:'Georgia',GH:'Ghana',GN:'Guinea',
+  GR:'Greece',GT:'Guatemala',GW:'Guinea-Bissau',HN:'Honduras',
+  HR:'Croatia',HT:'Haiti',HU:'Hungary',ID:'Indonesia',IE:'Ireland',
+  IL:'Israel',IN:'India',IQ:'Iraq',IR:'Iran',IS:'Iceland',IT:'Italy',
+  JM:'Jamaica',JO:'Jordan',JP:'Japan',KE:'Kenya',KG:'Kyrgyzstan',
+  KH:'Cambodia',KP:'North Korea',KR:'South Korea',KW:'Kuwait',
+  KZ:'Kazakhstan',LA:'Laos',LB:'Lebanon',LK:'Sri Lanka',LR:'Liberia',
+  LT:'Lithuania',LV:'Latvia',LY:'Libya',MA:'Morocco',MD:'Moldova',
+  ME:'Montenegro',MG:'Madagascar',MK:'N. Macedonia',ML:'Mali',
+  MM:'Myanmar',MN:'Mongolia',MR:'Mauritania',MW:'Malawi',MX:'Mexico',
+  MY:'Malaysia',MZ:'Mozambique',NA:'Namibia',NE:'Niger',NG:'Nigeria',
+  NI:'Nicaragua',NL:'Netherlands',NO:'Norway',NP:'Nepal',NZ:'New Zealand',
+  OM:'Oman',PA:'Panama',PE:'Peru',PG:'Papua New Guinea',PH:'Philippines',
+  PK:'Pakistan',PL:'Poland',PT:'Portugal',PY:'Paraguay',QA:'Qatar',
+  RO:'Romania',RS:'Serbia',RU:'Russia',RW:'Rwanda',SA:'Saudi Arabia',
+  SD:'Sudan',SE:'Sweden',SG:'Singapore',SI:'Slovenia',SK:'Slovakia',
+  SN:'Senegal',SO:'Somalia',SR:'Suriname',SS:'South Sudan',SV:'El Salvador',
+  SY:'Syria',SZ:'Eswatini',TD:'Chad',TG:'Togo',TH:'Thailand',
+  TJ:'Tajikistan',TM:'Turkmenistan',TN:'Tunisia',TR:'Turkey',
+  TZ:'Tanzania',UA:'Ukraine',UG:'Uganda',US:'United States',
+  UY:'Uruguay',UZ:'Uzbekistan',VE:'Venezuela',VN:'Vietnam',
+  YE:'Yemen',ZA:'South Africa',ZM:'Zambia',ZW:'Zimbabwe',
 };
-
-function _extractCountriesFromItems(items) {
-  const found = new Map();
-  const cutoff = Date.now() - 7 * 24 * 3600 * 1000; // last 7 days
-
-  items.forEach(item => {
-    const pubDate = new Date(item.date).getTime();
-    if (pubDate && pubDate < cutoff) return; // skip old items
-
-    const text = (item.title + ' ' + item.desc).toLowerCase();
-
-    // Direct ISO2 code mentions e.g. "#Iran" or "in Iran"
-    for (const [name, code] of Object.entries(COUNTRY_NAME_MAP)) {
-      if (text.includes(name)) {
-        const severity = text.includes('disrupted') || text.includes('outage') ||
-                         text.includes('shutdown') || text.includes('blackout')
-          ? (text.includes('total') || text.includes('complete') || text.includes('major') ? 'critical' : 'warning')
-          : 'warning';
-        const score = severity === 'critical' ? 3 : 2;
-        if (!found.has(code) || found.get(code).score < score)
-          found.set(code, { code, name: name.charAt(0).toUpperCase()+name.slice(1), level: severity, score });
-      }
-    }
-  });
-
-  return [...found.values()];
-}
 
 // ── Fetch OSM boundaries + render ─────────────────────────────────────────────
 async function _applyOutageData() {
@@ -195,8 +149,8 @@ async function _applyOutageData() {
 
   // OSINT feed injection
   outageData.filter(c => c.score >= 3).forEach(c => {
-    addLiveItem(`🔌 INTERNET OUTAGE — ${c.name}`, 'NetBlocks',
-      new Date().toISOString(), 'https://netblocks.org', 'CYBER', 'al', false);
+    addLiveItem(`🔌 INTERNET OUTAGE — ${c.name}`, 'OONI/CAIDA',
+      new Date().toISOString(), 'https://explorer.ooni.org', 'CYBER', 'al', false);
   });
 }
 
