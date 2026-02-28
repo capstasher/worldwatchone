@@ -15,30 +15,33 @@ let _map          = null;
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 // Plasma tile — 48x48 RGBA, updated inside map.on('render')
-const _PS = 48;
+const _PS = 96;
 const _PB = new Uint8Array(_PS * _PS * 4);
 const _BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 
 function _writePlasma(t) {
   const isNerv = document.body.classList.contains('nerv');
   const [pr,pg,pb] = isNerv ? [224,112,32] : [1,168,52];
+  // Seamless tiling: all spatial frequencies must be integer multiples of 2π/tile
+  // so sin(k * 2π * cx) = sin(k * 2π * (cx+1)) — left edge == right edge always
+  const TAU = Math.PI * 2;
   let i = 0;
   for (let y = 0; y < _PS; y++) {
     for (let x = 0; x < _PS; x++) {
       const cx = x / _PS, cy = y / _PS;
-      // Four overlapping sine waves — classic plasma
-      let v = Math.sin(cx * 6.2 + t)
-            + Math.sin(cy * 6.2 + t * 1.3)
-            + Math.sin((cx + cy) * 4.0 + t * 0.8)
-            + Math.sin(Math.sqrt((cx-.5)**2 + (cy-.5)**2) * 12 + t * 1.1);
-      v = (v + 4) / 8; // 0..1
-      // Ordered dither for organic transparent→solid transition
+      // Each wave uses integer k so tile wraps perfectly
+      let v = Math.sin(TAU * (2*cx + 1*cy) + t * 1.0)
+            + Math.sin(TAU * (1*cx + 2*cy) + t * 1.3)
+            + Math.sin(TAU * (3*cx + 1*cy) + t * 0.7)
+            + Math.sin(TAU * (1*cx + 3*cy) + t * 0.9)
+            + Math.sin(TAU * (2*cx + 2*cy) + t * 1.1) * 0.6;
+      v = (v + 4.6) / 9.2; // normalise 0..1
       let a = 0;
-      if (v > 0.65) {
-        a = 140 + ((v - 0.65) / 0.35 * 80) | 0;
-      } else if (v > 0.30) {
+      if (v > 0.62) {
+        a = 130 + ((v - 0.62) / 0.38 * 90) | 0;
+      } else if (v > 0.28) {
         const thr = _BAYER[((y % 4) * 4) + (x % 4)] / 16;
-        a = ((v - 0.30) / 0.35 > thr) ? 155 : 0;
+        a = ((v - 0.28) / 0.34 > thr) ? 150 : 0;
       }
       _PB[i++]=pr; _PB[i++]=pg; _PB[i++]=pb; _PB[i++]=a;
     }
