@@ -87,8 +87,7 @@ const CONF_ZONE_KEYS = {
   'Cabo Delgado':    'rel:2400484',
 
   // ── Pakistan / Afghanistan ────────────────────────────────────────────────
-  'KP Pakistan':     'rel:3244185',
-  'Balochistan':     'rel:3244181',
+  'Pakistan':        'PK',
   'Afghanistan':     'AF',
 
   // ── Taiwan / SCS ──────────────────────────────────────────────────────────
@@ -125,7 +124,7 @@ const REGION_ZONE_MAP = {
   'Ethiopia':     ['Amhara Region','Tigray Region'],
   'South Sudan':  ['South Sudan'],
   'Mozambique':   ['Cabo Delgado'],
-  'Pakistan':     ['KP Pakistan','Balochistan'],
+  'Pakistan':     ['Pakistan','Afghanistan'],
   'Taiwan Strait':['Taiwan'],
   'SCS':          ['Taiwan'],
   'Haiti':        ['Haiti'],
