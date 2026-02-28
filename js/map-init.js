@@ -85,6 +85,7 @@ map.on('load',()=>{
   // Initialize weather tile layers + disaster pins
   initWeather(map);
   initOutages(map);
+  initConflictZones(map);  // fetch real OSM boundaries for conflict regions
 
   // Initialize click handlers and flight filter
   initClicks(map);
