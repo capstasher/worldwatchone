@@ -189,6 +189,9 @@ function startTransitionToSpace(){
     document.getElementById('pr')?.classList.add('slide-out');
     document.getElementById('search-box')?.classList.add('slide-out');
     document.getElementById('bb')?.classList.add('slide-out');
+    // Sync orrery bottom bar NERV/CTRL label
+    const oBtn=document.querySelector('#orrery-bb .nerv-btn');
+    if(oBtn)oBtn.textContent=nervMode?'CTRL':'NERV';
 
     statEls.forEach(id=>{
       const el=document.getElementById(id);
@@ -499,6 +502,9 @@ function closeOrrery(){
   transitionPhase=0;
   if(orreryAnimId)cancelAnimationFrame(orreryAnimId);
   closePlanetDetail();
+  // Hide sunspot panel
+  const ssnP=document.getElementById('ssn-panel');
+  if(ssnP){ssnP.style.display='none';_ssnVisible=false;}
   document.getElementById('orrery-overlay').classList.remove('active');
   document.getElementById('orrery-info')?.classList.remove('visible');
   document.getElementById('transition-circle').style.display='none';
@@ -593,6 +599,11 @@ function drawOrrery(){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#06080e';ctx.fillRect(0,0,W,H);
 
+  // Theme colour — CTRL=green, NERV=amber
+  const OC = nervMode ? '#ffaa00' : '#00ff88';
+  const OC_DIM = nervMode ? 'rgba(255,170,0,' : 'rgba(0,255,136,';
+  const ocA = a => OC_DIM + a + ')';
+
   // Stars
   let sr=42;const rng=()=>{sr=(sr*16807)%2147483647;return(sr-1)/2147483646;};
   ctx.fillStyle='rgba(180,160,120,0.25)';
@@ -622,7 +633,7 @@ function drawOrrery(){
     // Show orbit if: done, or planet visible, or Earth orbit during flash
     const showOrbit=isDone||isVisible(pName)||(pName==='Earth'&&rev.showEarthOrbit);
     if(showOrbit){
-      ctx.strokeStyle='rgba(255,170,0,0.12)';ctx.lineWidth=0.8;
+      ctx.strokeStyle=ocA('0.12');ctx.lineWidth=0.8;
       ctx.beginPath();ctx.arc(CX,CY,oR,0,Math.PI*2);ctx.stroke();
     }
   }
@@ -631,7 +642,7 @@ function drawOrrery(){
   if(isVisible('Sun')){
     const sunR=relSizes.Sun;
     const sg=ctx.createRadialGradient(CX,CY,sunR,CX,CY,sunR*4);
-    sg.addColorStop(0,'rgba(255,170,0,0.06)');sg.addColorStop(1,'rgba(255,170,0,0)');
+    sg.addColorStop(0,ocA('0.06'));sg.addColorStop(1,ocA('0'));
     ctx.fillStyle=sg;ctx.beginPath();ctx.arc(CX,CY,sunR*4,0,Math.PI*2);ctx.fill();
     drawBody(ctx,CX,CY,sunR,'Sun',hoverAnimProgress['Sun']||0,LW);
   }
@@ -664,7 +675,7 @@ function drawOrrery(){
       const mr=relSizes.Moon;
       planetScreenPos.push({name:'Moon',sx:mx,sy:my,hitR:Math.max(mr+12,18)});
       if(isVisible('Moon')){
-        ctx.strokeStyle='rgba(255,170,0,0.08)';ctx.lineWidth=0.5;
+        ctx.strokeStyle=ocA('0.08');ctx.lineWidth=0.5;
         ctx.beginPath();ctx.arc(sx,sy,moonDist,0,Math.PI*2);ctx.stroke();
         drawBody(ctx,mx,my,mr,'Moon',hoverAnimProgress['Moon']||0,LW);
       }
@@ -673,25 +684,27 @@ function drawOrrery(){
 }
 
 function drawBody(ctx,x,y,r,name,hp,lw){
+  const OC = nervMode ? '#ffaa00' : '#00ff88';
   // Outline always
   ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
-  ctx.strokeStyle='#ffaa00';ctx.lineWidth=lw;ctx.stroke();
+  ctx.strokeStyle=OC;ctx.lineWidth=lw;ctx.stroke();
 
   // Fill bottom-to-top
   if(hp>0.01){
     ctx.save();
     ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();
     const fillH=r*2*hp;
-    ctx.fillStyle='#ffaa00';
+    ctx.fillStyle=OC;
     ctx.fillRect(x-r,y+r-fillH,r*2,fillH);
     ctx.restore();
   }
 
   // Label only on hover/select
-  if(hp>0.05)drawLabel(ctx,x,y,r,name,hp,lw);
+  if(hp>0.05)drawLabel(ctx,x,y,r,name,hp,lw,OC);
 }
 
-function drawLabel(ctx,x,y,r,name,hp,lw){
+function drawLabel(ctx,x,y,r,name,hp,lw,OC){
+  OC = OC || (nervMode ? '#ffaa00' : '#00ff88');
   const gap=4;
   const lineLen=18;
   ctx.save();
@@ -721,18 +734,18 @@ function drawLabel(ctx,x,y,r,name,hp,lw){
   ctx.beginPath();
   ctx.moveTo(lineStartX,lineY);
   ctx.lineTo(lineEndX,lineY);
-  ctx.strokeStyle='#ffaa00';ctx.lineWidth=lw;ctx.stroke();
+  ctx.strokeStyle=OC;ctx.lineWidth=lw;ctx.stroke();
 
   // Box
   ctx.fillStyle='rgba(6,8,14,0.92)';
-  ctx.strokeStyle='#ffaa00';ctx.lineWidth=lw;
+  ctx.strokeStyle=OC;ctx.lineWidth=lw;
   ctx.beginPath();
   if(ctx.roundRect)ctx.roundRect(boxX,boxY,bw,bh,2);
   else ctx.rect(boxX,boxY,bw,bh);
   ctx.fill();ctx.stroke();
 
   // Text
-  ctx.fillStyle='#ffaa00';
+  ctx.fillStyle=OC;
   ctx.textAlign='left';ctx.textBaseline='middle';
   ctx.globalAlpha=Math.min(1,hp*2.5);
   ctx.fillText(text,boxX+padX,boxY+bh/2);
@@ -845,6 +858,9 @@ function buildSunDetail(){
   <div class="pd-section"><div class="pd-label">SWPC ALERTS</div>
     <div id="sun-alerts"><div style="color:var(--text-dim);font-size:10px">Loading...</div></div>
   </div>
+  <div class="pd-section">
+    <button onclick="toggleSunspotChart()" style="width:100%;background:rgba(255,170,0,0.08);border:1px solid var(--accent);color:var(--accent);font-family:var(--ft);font-size:9px;letter-spacing:2px;padding:7px 0;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,170,0,0.18)'" onmouseout="this.style.background='rgba(255,170,0,0.08)'">☀ SUNSPOT NUMBER CHART</button>
+  </div>
   <div class="pd-section"><div class="pd-label">LATEST NEWS</div>
     <div id="pd-news"><div style="color:var(--text-dim);font-size:10px">Loading...</div></div>
   </div>`;
@@ -899,3 +915,304 @@ async function fetchSunData(){
 
 function kpColor(kp){if(kp>=8)return'#ff0000';if(kp>=7)return'#ff2200';if(kp>=6)return'#ff4400';if(kp>=5)return'#ff6600';if(kp>=4)return'#ffaa00';if(kp>=3)return'#88cc00';if(kp>=2)return'#00cc44';return'#00aa66';}
 
+// ====== SUNSPOT CHART ======
+let _ssnData = null;      // full monthly dataset [{time, ssn, smooth}]
+let _ssnRange = 'all';    // current selected range
+let _ssnVisible = false;
+
+const SSN_RANGES = [
+  { key: 'all',   label: 'ALL TIME',   months: null },
+  { key: '10y',   label: '10 YEARS',   months: 120  },
+  { key: '5y',    label: '5 YEARS',    months: 60   },
+  { key: '1y',    label: 'PAST YEAR',  months: 12   },
+  { key: '6m',    label: '6 MONTHS',   months: 6    },
+  { key: '3m',    label: '3 MONTHS',   months: 3    },
+];
+
+function toggleSunspotChart() {
+  const panel = document.getElementById('ssn-panel');
+  if (!panel) { buildSsnPanel(); return; }
+  _ssnVisible = !_ssnVisible;
+  panel.style.display = _ssnVisible ? 'flex' : 'none';
+}
+
+function buildSsnPanel() {
+  _ssnVisible = true;
+  const el = document.createElement('div');
+  el.id = 'ssn-panel';
+  el.innerHTML = `
+    <div id="ssn-header">
+      <div style="font-family:var(--ft);font-size:10px;letter-spacing:3px;color:var(--accent)">☀ SUNSPOT NUMBER</div>
+      <button id="ssn-close" onclick="toggleSunspotChart()">✕</button>
+    </div>
+    <div id="ssn-ranges"></div>
+    <div id="ssn-stat-row">
+      <div class="ssn-stat"><div class="ssn-stat-label">CURRENT</div><div class="ssn-stat-val" id="ssn-cur">--</div></div>
+      <div class="ssn-stat"><div class="ssn-stat-label">PEAK (CYCLE 25)</div><div class="ssn-stat-val" id="ssn-peak">--</div></div>
+      <div class="ssn-stat"><div class="ssn-stat-label">12-MO AVG</div><div class="ssn-stat-val" id="ssn-avg">--</div></div>
+      <div class="ssn-stat"><div class="ssn-stat-label">SOLAR MAX</div><div class="ssn-stat-val" id="ssn-max">--</div></div>
+    </div>
+    <div id="ssn-canvas-wrap">
+      <canvas id="ssn-canvas"></canvas>
+      <div id="ssn-tooltip"></div>
+    </div>
+    <div id="ssn-source">SOURCE: NOAA SWPC // SIDC BRUSSELS // MONTHLY SSN</div>
+  `;
+  document.getElementById('orrery-overlay').appendChild(el);
+
+  // Build range buttons
+  const rb = document.getElementById('ssn-ranges');
+  SSN_RANGES.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'ssn-rb' + (r.key === 'all' ? ' active' : '');
+    b.dataset.key = r.key;
+    b.textContent = r.label;
+    b.onclick = () => setSsnRange(r.key);
+    rb.appendChild(b);
+  });
+
+  loadSsnData();
+
+  // Canvas mouse hover for tooltip
+  const canvas = document.getElementById('ssn-canvas');
+  canvas.addEventListener('mousemove', ssnHover);
+  canvas.addEventListener('mouseleave', () => {
+    document.getElementById('ssn-tooltip').style.display = 'none';
+  });
+}
+
+async function loadSsnData() {
+  const src = document.getElementById('ssn-source');
+  if (src) src.textContent = 'LOADING DATA...';
+  try {
+    // observed-solar-cycle-indices.json: array of {time-tag, ssn, smoothed_ssn, ...}
+    // Goes back to 1749 — full solar cycle record
+    const url = 'https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json';
+    let data = null;
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      if (r.ok) data = await r.json();
+    } catch(e) {}
+    if (!data) {
+      // try via proxy
+      const r2 = await fetch(PROXY_BASE + '/api/proxy?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(14000) });
+      if (r2.ok) data = await r2.json();
+    }
+    if (!data || !Array.isArray(data)) throw new Error('No data');
+
+    _ssnData = data
+      .filter(d => d['time-tag'] && d.ssn !== undefined && d.ssn !== null && +d.ssn >= 0)
+      .map(d => ({
+        time: new Date(d['time-tag']),
+        ssn:  +d.ssn,
+        smooth: d.smoothed_ssn !== undefined ? +d.smoothed_ssn : null,
+      }))
+      .sort((a, b) => a.time - b.time);
+
+    // Fill stats
+    const cur = _ssnData[_ssnData.length - 1]?.ssn ?? '--';
+    const c25 = _ssnData.filter(d => d.time >= new Date('2019-12-01'));
+    const peak = c25.length ? Math.max(...c25.map(d => d.ssn)) : '--';
+    const last12 = _ssnData.slice(-12);
+    const avg = last12.length ? Math.round(last12.reduce((s,d)=>s+d.ssn,0)/last12.length) : '--';
+    // find all-time max
+    const allMax = Math.max(..._ssnData.map(d=>d.ssn));
+    const allMaxRec = _ssnData.find(d=>d.ssn===allMax);
+
+    document.getElementById('ssn-cur')?.textContent !== undefined && (document.getElementById('ssn-cur').textContent = cur);
+    document.getElementById('ssn-peak')?.textContent !== undefined && (document.getElementById('ssn-peak').textContent = peak);
+    document.getElementById('ssn-avg')?.textContent !== undefined && (document.getElementById('ssn-avg').textContent = avg);
+    document.getElementById('ssn-max')?.textContent !== undefined && (document.getElementById('ssn-max').textContent = allMax + (allMaxRec ? ' (' + allMaxRec.time.getFullYear() + ')' : ''));
+
+    if (src) src.textContent = 'SOURCE: NOAA SWPC // SIDC BRUSSELS // MONTHLY SSN // ' + _ssnData[0].time.getFullYear() + '–PRESENT';
+
+    drawSsnChart();
+  } catch(e) {
+    if (src) src.textContent = 'DATA UNAVAILABLE — ' + e.message;
+  }
+}
+
+function setSsnRange(key) {
+  _ssnRange = key;
+  document.querySelectorAll('.ssn-rb').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+  drawSsnChart();
+}
+
+function ssnSlice() {
+  if (!_ssnData) return [];
+  const r = SSN_RANGES.find(r => r.key === _ssnRange);
+  if (!r || !r.months) return _ssnData;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - r.months);
+  return _ssnData.filter(d => d.time >= cutoff);
+}
+
+function drawSsnChart() {
+  const canvas = document.getElementById('ssn-canvas');
+  if (!canvas || !_ssnData) return;
+  const wrap = document.getElementById('ssn-canvas-wrap');
+  canvas.width  = wrap.clientWidth  || 600;
+  canvas.height = wrap.clientHeight || 260;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 14, right: 18, bottom: 32, left: 42 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top  - pad.bottom;
+
+  const pts = ssnSlice();
+  if (!pts.length) return;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const isCtrl = !nervMode; // CTRL = green, NERV = amber
+  const lineCol   = isCtrl ? '#00ff88' : '#ffaa00';
+  const smoothCol = isCtrl ? '#00cc66' : '#ff8800';
+  const gridCol   = isCtrl ? 'rgba(0,255,136,0.08)' : 'rgba(255,170,0,0.08)';
+  const axisCol   = isCtrl ? 'rgba(0,255,136,0.25)' : 'rgba(255,170,0,0.25)';
+  const labelCol  = isCtrl ? 'rgba(0,255,136,0.5)'  : 'rgba(255,170,0,0.5)';
+  const fillCol   = isCtrl ? 'rgba(0,255,136,0.06)' : 'rgba(255,170,0,0.06)';
+
+  const tMin = pts[0].time.getTime();
+  const tMax = pts[pts.length-1].time.getTime();
+  const ssnMax = Math.max(...pts.map(d=>d.ssn), 1);
+
+  const tx = t => pad.left + ((t - tMin) / (tMax - tMin)) * cw;
+  const ty = v => pad.top  + ch - (v / (ssnMax * 1.08)) * ch;
+
+  // Grid lines
+  ctx.strokeStyle = gridCol;
+  ctx.lineWidth = 1;
+  const gridY = [0, 50, 100, 150, 200, 250, 300];
+  gridY.forEach(v => {
+    if (v > ssnMax * 1.08) return;
+    const y = ty(v);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cw, y); ctx.stroke();
+  });
+
+  // Y axis labels
+  ctx.fillStyle = labelCol;
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  gridY.forEach(v => {
+    if (v > ssnMax * 1.08) return;
+    ctx.fillText(v, pad.left - 5, ty(v) + 3);
+  });
+
+  // X axis labels — pick good tick frequency based on range
+  const spanYears = (tMax - tMin) / (1000*60*60*24*365.25);
+  const tickStep = spanYears > 50 ? 20 : spanYears > 20 ? 10 : spanYears > 8 ? 5 : spanYears > 3 ? 2 : 1;
+  ctx.textAlign = 'center';
+  const startYear = new Date(tMin).getFullYear();
+  const endYear   = new Date(tMax).getFullYear();
+  for (let y = Math.ceil(startYear/tickStep)*tickStep; y <= endYear; y += tickStep) {
+    const t = new Date(y, 0, 1).getTime();
+    if (t < tMin || t > tMax) continue;
+    const x = tx(t);
+    ctx.strokeStyle = axisCol;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top+ch); ctx.stroke();
+    ctx.fillStyle = labelCol;
+    ctx.fillText(y, x, H - 6);
+  }
+
+  // Area fill under SSN line
+  ctx.beginPath();
+  ctx.moveTo(tx(tMin), ty(0));
+  pts.forEach(d => ctx.lineTo(tx(d.time.getTime()), ty(d.ssn)));
+  ctx.lineTo(tx(tMax), ty(0));
+  ctx.closePath();
+  ctx.fillStyle = fillCol;
+  ctx.fill();
+
+  // Raw SSN line
+  ctx.beginPath();
+  ctx.strokeStyle = lineCol;
+  ctx.lineWidth = 1;
+  pts.forEach((d, i) => {
+    const x = tx(d.time.getTime()), y = ty(d.ssn);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Smoothed SSN line (thicker, slightly different shade)
+  const smoothPts = pts.filter(d => d.smooth !== null && !isNaN(d.smooth) && d.smooth >= 0);
+  if (smoothPts.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = smoothCol;
+    ctx.lineWidth = 2;
+    smoothPts.forEach((d, i) => {
+      const x = tx(d.time.getTime()), y = ty(d.smooth);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  // Current marker dot
+  const last = pts[pts.length-1];
+  const lx = tx(last.time.getTime()), ly = ty(last.ssn);
+  ctx.beginPath();
+  ctx.arc(lx, ly, 3.5, 0, Math.PI*2);
+  ctx.fillStyle = lineCol;
+  ctx.fill();
+
+  // Legend
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = lineCol;
+  ctx.fillText('─ MONTHLY SSN', pad.left, pad.top + 10);
+  if (smoothPts.length > 1) {
+    ctx.fillStyle = smoothCol;
+    ctx.fillText('─ SMOOTHED', pad.left + 105, pad.top + 10);
+  }
+
+  // Store for hover
+  canvas._pts = pts;
+  canvas._tx = tx;
+  canvas._ty = ty;
+  canvas._pad = pad;
+}
+
+function ssnHover(e) {
+  const canvas = document.getElementById('ssn-canvas');
+  if (!canvas || !canvas._pts) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const { _pts, _tx, _pad } = canvas;
+  const W = canvas.width;
+  const cw = W - _pad.left - _pad.right;
+
+  // find closest point by x
+  let closest = null, minDx = Infinity;
+  _pts.forEach(d => {
+    const x = _tx(d.time.getTime());
+    const dx = Math.abs(x - mx);
+    if (dx < minDx) { minDx = dx; closest = d; }
+  });
+  if (!closest || minDx > 30) { document.getElementById('ssn-tooltip').style.display='none'; return; }
+
+  const tip = document.getElementById('ssn-tooltip');
+  const isCtrl = !nervMode;
+  const dateStr = closest.time.toLocaleDateString('en-GB', {month:'short', year:'numeric'});
+  tip.innerHTML = `<div class="ssn-tip-date">${dateStr}</div><div class="ssn-tip-val">SSN: <b>${closest.ssn}</b></div>${closest.smooth !== null && !isNaN(closest.smooth) ? `<div class="ssn-tip-smooth">SMOOTH: ${(+closest.smooth).toFixed(1)}</div>` : ''}`;
+  tip.style.display = 'block';
+  const cx = _tx(closest.time.getTime());
+  const tipW = 110;
+  tip.style.left = (cx + tipW > W - _pad.right ? cx - tipW - 8 : cx + 8) + 'px';
+  tip.style.top  = (e.clientY - rect.top - 10) + 'px';
+}
+
+// Redraw chart on window resize
+window.addEventListener('resize', () => {
+  if (_ssnVisible && _ssnData) drawSsnChart();
+});
+
+// Hook into theme toggle via the existing outageThemeUpdate pattern
+// nerv-ctrl.js calls outageThemeUpdate() on every togNerv() — we piggyback
+const _origOutageThemeUpdate = window.outageThemeUpdate;
+window.outageThemeUpdate = function() {
+  if (typeof _origOutageThemeUpdate === 'function') _origOutageThemeUpdate();
+  if (_ssnVisible && _ssnData) setTimeout(drawSsnChart, 50);
+  // Sync orrery-bb button label
+  const oBtn = document.querySelector('#orrery-bb .nerv-btn');
+  if (oBtn) oBtn.textContent = nervMode ? 'CTRL' : 'NERV';
+};
