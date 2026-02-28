@@ -30,6 +30,11 @@ window.addEventListener('unhandledrejection',function(e){
 <div id="transition-circle"></div>
 <div id="orrery-overlay">
   <canvas id="orrery-canvas"></canvas>
+  <div id="orrery-bb">
+    <div id="mc-orr">☀ SOLAR SYSTEM ORRERY // REAL-TIME KEPLERIAN ORBITS</div>
+    <div style="display:flex;gap:18px;font-family:var(--fm);font-size:10px;color:var(--text-dim)"><span>J2000 EPOCH</span><span>AU SCALE</span></div>
+    <button class="nerv-btn" onclick="togNerv()">CTRL</button>
+  </div>
 
   <div id="orrery-info">HOVER PLANET TO IDENTIFY // CLICK TO INSPECT</div>
   <div id="mp-float" style="display:none">
