@@ -37,7 +37,7 @@ map.on('load',()=>{
       0.85,'rgba(230,20,0,0.14)',
       1.0,'rgba(255,0,0,0.18)'
     ],
-    'fill-opacity':1
+    'fill-opacity': 0.25  // pulse animation in conflicts.js will drive this
   }});
   // Dashed frontline perimeter border
   map.addLayer({id:'fronts-line',type:'line',source:'frontlines',paint:{
