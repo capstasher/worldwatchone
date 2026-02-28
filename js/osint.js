@@ -123,6 +123,7 @@ const RSS_FEEDS=[
   {url:'https://rss.dw.com/rdf/rss-en-world',         label:'DW World',    zone:'GEO',   ty:'in'},
   {url:'https://www.aljazeera.com/xml/rss/all.xml',   label:'Al Jazeera',  zone:'GEO',   ty:'in'},
   {url:'https://feeds.washingtonpost.com/rss/world',  label:'WaPo World',  zone:'GEO',   ty:'in'},
+  {url:'https://netblocks.org/feed',                   label:'NetBlocks',   zone:'CYBER', ty:'al'},
 ];
 
 async function fetchNewsQuery(qObj){
