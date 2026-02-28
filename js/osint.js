@@ -70,7 +70,6 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'intelnews',         label:'Intel News',           zone:'OSINT',   ty:'in', twitter:null},
   {channel:'osint_daily',       label:'OSINT Daily',          zone:'OSINT',   ty:'in', twitter:null},
   {channel:'conflictnews',      label:'Conflict News',        zone:'OSINT',   ty:'al', twitter:null},
-  {channel:'theinsider',        label:'The Insider',          zone:'OSINT',   ty:'in', twitter:'theins_en'},
   // GLOBAL MONITORING
   {channel:'IntelSlava',        label:'Intel Slava',          zone:'OSINT',   ty:'al', twitter:null},
   {channel:'MiddleEastSpectator', label:'ME Spectator',       zone:'MENA',    ty:'wa', twitter:null},
