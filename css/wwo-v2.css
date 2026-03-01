@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/@fontsource/dseg7-classic/index.css');
 *{margin:0;padding:0;box-sizing:border-box;}
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -22,6 +23,7 @@
   --fm:'Share Tech Mono',monospace;
   --fu:'Orbitron',sans-serif;
   --ft:'Orbitron',sans-serif;
+  --fseg:'DSEG7 Classic',monospace;
   /* Gradient endpoints — all solid, colour TO colour */
   --grad-deep:  #002a10;   /* deep forest */
   --grad-mid:   #005a22;   /* mid green */
@@ -71,10 +73,10 @@ html.crt #crt-btn{opacity:1!important;border-color:var(--accent);color:var(--acc
   position:fixed;inset:0;z-index:2;pointer-events:none;
   background:linear-gradient(
     180deg,
-    rgba(255,100,0,0.28)  0%,
-    rgba(255,60,0,0.12)   28%,
-    rgba(0,80,30,0.08)    55%,
-    rgba(0,160,50,0.30)   100%
+    rgba(255,80,0,0.7)    0%,
+    rgba(255,50,0,0.35)   30%,
+    rgba(0,100,30,0.25)   60%,
+    rgba(0,200,60,0.65)   100%
   );
   mix-blend-mode:color;
 }
@@ -107,63 +109,58 @@ body.nerv #colour-zone{
   transition:all 0.5s ease;
 }
 
-/* ── PANEL TITLE BAND — colour-to-colour gradient, NERV instrument header ────*/
+/* ── PANEL TITLE BAND — solid accent colour, black text ──────────────────────*/
 .panel-title{
   font-family:var(--ft);
-  font-size:11px;          /* bigger than v1's 10px */
+  font-size:10px;
   font-weight:700;
-  letter-spacing:4px;
+  letter-spacing:3px;
   text-transform:uppercase;
-  color:var(--accent);
-  padding:10px 14px 9px 17px;
-  border-bottom:1px solid var(--border);
+  color:#000;
+  padding:9px 14px 8px 14px;
+  border-bottom:none;
   display:flex;align-items:center;justify-content:space-between;
-  /* Colour-to-colour: deep zone → mid fade, not to black */
-  background:linear-gradient(90deg, var(--grad-deep) 0%, var(--grad-mid) 45%, var(--grad-end) 100%);
+  background:var(--accent);
   position:relative;
 }
-.panel-title::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
-  background:var(--accent);
-  box-shadow:0 0 10px rgba(var(--accent-rgb),0.6);
-}
-.panel-title .live-dot{width:7px;height:7px;border-radius:50%;background:var(--danger);animation:pr 1.5s infinite;}
-@keyframes pr{0%,100%{opacity:1}50%{opacity:0.3}}
+.panel-title::before{display:none;}
+.panel-title .live-dot{width:7px;height:7px;border-radius:50%;background:#000;opacity:0.5;animation:pr 1.5s infinite;}
+@keyframes pr{0%,100%{opacity:0.6}50%{opacity:0.15}}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    HEADER
    ═══════════════════════════════════════════════════════════════════════════ */
 #header{
+  position:fixed;
   top:0;left:0;right:0;height:44px;
   display:flex;align-items:stretch;
   padding:0;
-  border-bottom:1px solid var(--border);
+  border-bottom:none;
   z-index:300;transition:opacity 0.5s;
-  /* Colour-to-colour: deep left zone fades toward mid-dark, never hits black */
-  background:linear-gradient(90deg, var(--grad-deep) 0%, var(--grad-deep) 40%, var(--grad-end) 100%);
+  background:var(--accent);
   font-family:var(--ft);
+  color:#000;
 }
 body.nerv #header{
-  background:linear-gradient(90deg, var(--grad-deep) 0%, var(--grad-deep) 40%, var(--grad-end) 100%);
+  background:var(--accent);
 }
 /* Accent bottom line on header */
 #header::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg, var(--accent), rgba(var(--accent-rgb),0.2) 50%, transparent 100%);
+  display:none;
 }
 /* Logo block — solid deep fill, left-anchored */
 #header .logo{
   font-family:var(--ft);font-size:13px;font-weight:800;
-  letter-spacing:5px;color:var(--accent);
-  text-shadow:0 0 16px rgba(var(--accent-rgb),0.5);
+  letter-spacing:5px;color:#000;
+  text-shadow:none;
   padding:0 20px;
-  background:var(--grad-deep);
-  border-right:1px solid var(--border);
+  background:rgba(0,0,0,0.15);
+  border-right:1px solid rgba(0,0,0,0.2);
   display:flex;align-items:center;
   flex-shrink:0;white-space:nowrap;
 }
 #header .logo span{
-  color:var(--text-dim);font-weight:600;
+  color:rgba(0,0,0,0.6);font-weight:600;
   font-size:8px;letter-spacing:3px;margin-left:10px;
   text-transform:uppercase;
 }
@@ -172,13 +169,14 @@ body.nerv #header{
   font-family:var(--ft);font-size:9px;letter-spacing:2px;
   padding:0 18px;
   text-transform:uppercase;
+  color:#000;
 }
-.sys-info div{display:flex;align-items:center;gap:6px;}
+.sys-info div{display:flex;align-items:center;gap:6px;color:#000;}
 .sd{width:7px;height:7px;border-radius:50%;display:inline-block;}
-.sd.g{background:#00ff88;box-shadow:0 0 8px #00ff88,0 0 20px rgba(0,255,136,0.5);}
-.sd.a{background:#ffaa00;box-shadow:0 0 8px #ffaa00,0 0 20px rgba(255,170,0,0.5);}
-body.nerv .sd.g{background:#40b030;box-shadow:0 0 8px #40b030,0 0 20px rgba(64,176,48,0.5);}
-body.nerv .sd.a{background:#e07020;box-shadow:0 0 8px #e07020,0 0 20px rgba(224,112,32,0.5);}
+.sd.g{background:#006622;box-shadow:0 0 6px rgba(0,80,30,0.8);}
+.sd.a{background:#663300;box-shadow:0 0 6px rgba(80,40,0,0.8);}
+body.nerv .sd.g{background:#1a5200;box-shadow:0 0 6px rgba(0,60,20,0.8);}
+body.nerv .sd.a{background:#7a2200;box-shadow:0 0 6px rgba(100,30,0,0.8);}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SEARCH
@@ -272,18 +270,17 @@ body.nerv .fi:hover{background:rgba(20,7,0,0.95);}
    BOTTOM BAR — solid instrument panel base, colour-to-colour gradient
    ═══════════════════════════════════════════════════════════════════════════ */
 #bb{
+  position:fixed;
   bottom:0;left:0;right:0;height:40px;
   display:flex;align-items:center;justify-content:space-between;
   padding:0 18px;
   font-family:var(--ft);font-size:10px;letter-spacing:2px;text-transform:uppercase;
   color:var(--text-dim);
   z-index:300;opacity:1;transform:translateY(0);
-  /* Solid dark fill — not glass, not black, instrument panel zone */
-  background:linear-gradient(90deg, var(--grad-deep) 0%, var(--grad-end) 50%, var(--grad-deep) 100%);
-  border-top:1px solid var(--border);
-  position:relative;
+  background:var(--grad-deep);
+  border-top:2px solid var(--accent);
 }
-body.nerv #bb{background:linear-gradient(90deg, var(--grad-deep) 0%, var(--grad-end) 50%, var(--grad-deep) 100%);}
+body.nerv #bb{background:var(--grad-deep);}
 /* Accent top line */
 #bb::before{
   content:'';position:absolute;top:0;left:0;right:0;height:2px;
