@@ -238,11 +238,17 @@ async function _fetchConfBoundary(key, zoneName) {
   if (_confBoundaryCache[key]) return;
   try {
     const param = key.startsWith('rel:') ? `rel=${key.slice(4)}` : `iso=${key}`;
-    const r = await fetch(`${PROXY_BASE}/api/boundary?${param}`,
-      { signal: AbortSignal.timeout(30000) });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30000);
+    let r;
+    try {
+      r = await fetch(`${PROXY_BASE}/api/boundary?${param}`, { signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
-    const geom = _confToGeoJSON(data, zoneName);  // use conflict-specific parser
+    const geom = _confToGeoJSON(data, zoneName);
     if (geom) { _confBoundaryCache[key] = geom; console.log('[WWO] Conf boundary cached:', key, zoneName); }
     else console.warn('[WWO] No conf geometry for', key, zoneName);
   } catch(e) { console.warn('[WWO] Conf boundary failed:', key, e.message); }
@@ -317,7 +323,14 @@ async function initConflictZones(map) {
   console.log(`[WWO] Conflict zones rendered: ${features.length}`);
 
   const src = map.getSource('frontlines');
-  if (src) src.setData({ type: 'FeatureCollection', features });
+  // Only overwrite static FRONTLINES if we actually got OSM boundaries.
+  // If all fetches failed (e.g. Worker down, CORS, Firefox compat) the static
+  // fallback data loaded at map init remains intact and visible.
+  if (src && features.length > 0) {
+    src.setData({ type: 'FeatureCollection', features });
+  } else if (features.length === 0) {
+    console.warn('[WWO] No OSM boundaries loaded — keeping static FRONTLINES fallback');
+  }
 
   // Override static paint with per-feature colour expressions
   try {
