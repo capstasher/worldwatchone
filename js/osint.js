@@ -141,9 +141,21 @@ const RSS_FEEDS=[
   {url:'https://netblocks.org/feed',                   label:'NetBlocks',   zone:'CYBER', ty:'al'},
 ];
 
+// ── Feed fetch rate limiting ──────────────────────────────────────────────────
+// Google News RSS can be fetched via allorigins directly (no Worker needed).
+// This keeps the ~47 GN queries off the Worker entirely.
+const ALLORIGINS = url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+
+// Query rotation: cycle through all queries in batches so each 5-min refresh
+// only fires a subset, but every query gets a turn over ~15 minutes.
+let _queryBatchIdx = 0;
+const QUERY_BATCH_SIZE = 16; // ~16 queries per cycle × 3 cycles = full rotation in 15min
+
 async function fetchNewsQuery(qObj){
   const rssUrl=GN_BASE+qObj.q+GN_PARAMS;
+  // Try allorigins first (free, no Worker quota), fall back to Worker proxy
   const proxyUrls=[
+    ALLORIGINS(rssUrl),
     PROXY(rssUrl),
   ];
   for(const url of proxyUrls){
@@ -244,11 +256,36 @@ function extractRSSMedia(html){
 async function fetchTelegramChannel(ch){
   const cutoff=Date.now()-24*60*60*1000;
 
-  // ── METHOD 1: RSSHub via Worker proxy (primary — server IP doesn't matter) ──
+  // ── METHOD 1: tg.i-c-a.su JSON API direct (CORS-ok on https://, no Worker needed) ──
+  try{
+    const r=await fetch(TG_JSON_API+ch.channel+'?limit=20',{signal:AbortSignal.timeout(8000)});
+    if(!r.ok)throw new Error('tg.i-c-a.su '+r.status);
+    const d=await r.json();
+    const msgs=Array.isArray(d)?d:(d.messages||[]);
+    if(msgs.length>0){
+      let added=0;
+      msgs.slice(-15).forEach(msg=>{
+        const text=typeof msg==='string'?msg:stripHtml(msg.text||msg.message||msg.caption||'');
+        if(!text||text.length<15)return;
+        const pubDate=msg.date?new Date(msg.date*1000):new Date();
+        if(pubDate.getTime()<cutoff)return;
+        const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
+        const media=extractTgMedia(msg);
+        const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
+        liveTelegramPosts.push(postObj);
+        if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
+        addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        added++;
+      });
+      if(added>0){console.log(`[TG] ${ch.channel}: OK via tg.i-c-a.su direct (${added} items)`);return;}
+    }
+  }catch(e){console.log(`[TG] ${ch.channel}: tg.i-c-a.su direct failed (${e.message})`);}
+
+  // ── METHOD 2: RSSHub direct (rsshub.app has open CORS, no Worker needed) ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
-    const r=await fetch(PROXY(rssUrl),{signal:AbortSignal.timeout(10000)});
-    if(!r.ok)throw new Error('RSSHub '+r.status);
+    const r=await fetch(rssUrl,{signal:AbortSignal.timeout(8000)});
+    if(!r.ok)throw new Error('RSSHub direct '+r.status);
     const xml=await r.text();
     const items=parseRSSXml(xml);
     if(items.length>0){
@@ -259,7 +296,6 @@ async function fetchTelegramChannel(ch){
         const pubDate=item.pubDate?new Date(item.pubDate):new Date();
         if(pubDate.getTime()<cutoff)return;
         const link=item.link||`https://t.me/${ch.channel}`;
-        // Extract image from description enclosure if present
         const media=extractRSSMedia(item.description||'');
         const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
         liveTelegramPosts.push(postObj);
@@ -267,11 +303,37 @@ async function fetchTelegramChannel(ch){
         addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
         added++;
       });
-      if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub (${added} items)`);return;}
+      if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub direct (${added} items)`);return;}
     }
-  }catch(e){console.log(`[TG] ${ch.channel}: RSSHub failed (${e.message})`);}
+  }catch(e){console.log(`[TG] ${ch.channel}: RSSHub direct failed (${e.message})`);}
 
-  // ── METHOD 2: Telegram web preview HTML via Worker proxy ──
+  // ── METHOD 3: RSSHub via Worker proxy (last resort) ──
+  try{
+    const rssUrl=RSSHUB_TG+ch.channel;
+    const r=await fetch(PROXY(rssUrl),{signal:AbortSignal.timeout(10000)});
+    if(!r.ok)throw new Error('RSSHub proxy '+r.status);
+    const xml=await r.text();
+    const items=parseRSSXml(xml);
+    if(items.length>0){
+      let added=0;
+      items.slice(0,15).reverse().forEach(item=>{
+        const text=stripHtml(item.title||item.description||'');
+        if(!text||text.length<15)return;
+        const pubDate=item.pubDate?new Date(item.pubDate):new Date();
+        if(pubDate.getTime()<cutoff)return;
+        const link=item.link||`https://t.me/${ch.channel}`;
+        const media=extractRSSMedia(item.description||'');
+        const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
+        liveTelegramPosts.push(postObj);
+        if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
+        addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        added++;
+      });
+      if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub proxy (${added} items)`);return;}
+    }
+  }catch(e){console.log(`[TG] ${ch.channel}: RSSHub proxy failed (${e.message})`);}
+
+  // ── METHOD 4: Telegram web preview HTML via Worker proxy ──
   try{
     const r=await fetch(PROXY('https://t.me/s/'+ch.channel),{signal:AbortSignal.timeout(8000)});
     if(!r.ok)throw new Error('t.me '+r.status);
@@ -402,9 +464,13 @@ async function refreshLiveFeed(){
 
   const preCount=liveTelegramPosts.length;
 
-  // Run news queries and Telegram channels in parallel batches for speed
-  // News: all at once (different endpoints, no rate limit concern)
-  const newsPromises=FEED_QUERIES.map((q,i)=>
+  // ── News queries: rotate through batches to spread Worker load ──
+  // Each 5-min cycle runs QUERY_BATCH_SIZE queries; full rotation every ~15min
+  const batchStart = _queryBatchIdx * QUERY_BATCH_SIZE;
+  const batchQueries = FEED_QUERIES.slice(batchStart, batchStart + QUERY_BATCH_SIZE);
+  _queryBatchIdx = (batchStart + QUERY_BATCH_SIZE >= FEED_QUERIES.length) ? 0 : _queryBatchIdx + 1;
+
+  const newsPromises=batchQueries.map((q,i)=>
     new Promise(r=>setTimeout(()=>fetchNewsQuery(q).then(r).catch(r),i*200))
   );
   const rssPromises=RSS_FEEDS.map((feed,i)=>
@@ -427,18 +493,19 @@ async function refreshLiveFeed(){
     const osintDots=document.querySelectorAll('.sd.a');
     osintDots.forEach(d=>{d.classList.remove('a');d.classList.add('g');});
   }else{
-    statusEl.textContent='NEWS ONLY // TG RETRY 60s';
+    statusEl.textContent='NEWS ONLY // TG RETRY 5m';
     statusEl.style.color='var(--warning)';
   }
-  console.log(`[WWO] Feed sync: ${newPosts} new Telegram posts, ${postCount} total, ${ofE.children.length} feed items`);
+  console.log(`[WWO] Feed sync: batch ${_queryBatchIdx}/${Math.ceil(FEED_QUERIES.length/QUERY_BATCH_SIZE)}, ${newPosts} new TG posts, ${ofE.children.length} feed items`);
   feedRefreshing=false;
 }
 
-// Initial load, then rapid refresh every 60 seconds for near-real-time
+// Initial load, then full refresh every 5 minutes (news is not sub-minute)
 refreshLiveFeed();
-setInterval(refreshLiveFeed,60*1000);// 60s refresh for near-real-time
+setInterval(refreshLiveFeed, 5 * 60 * 1000); // 5min — was 60s (too aggressive)
 
-// Quick Telegram-only refresh every 30s (primary channels only)
+// Quick Telegram-only refresh every 90s (primary channels only)
+// Telegram is the real-time source; keep it responsive but not hammering
 setInterval(async()=>{
   if(feedRefreshing||orreryActive)return;
   const primaryChannels=TELEGRAM_OSINT_CHANNELS.slice(0,4);
@@ -446,4 +513,4 @@ setInterval(async()=>{
     await fetchTelegramChannel(ch);
     await new Promise(r=>setTimeout(r,300));
   }
-},30*1000);
+},90*1000); // 90s — was 30s
