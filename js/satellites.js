@@ -87,7 +87,7 @@ async function fetchCelesTrak(){
   // Fetch groups in parallel
   const groupFetches=CELESTRAK_GROUPS.map(async g=>{
     try{
-      const r=await fetch(PROXY(`${CELESTRAK_BASE}?GROUP=${g.toUpperCase()}&FORMAT=TLE`),{signal:AbortSignal.timeout(20000)});
+      const r=await fetch(PROXY(`${CELESTRAK_BASE}?GROUP=${g.toUpperCase()}&FORMAT=TLE`),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),20000); return _c.signal; })()});
       if(!r.ok)return 0;
       return parseTLEText(await r.text());
     }catch(e){return 0;}
@@ -96,7 +96,7 @@ async function fetchCelesTrak(){
   const catnrFetches=SATS.map(async s=>{
     if(tleData.has(s.norad))return 0;
     try{
-      const r=await fetch(PROXY(`${CELESTRAK_BASE}?CATNR=${s.norad}&FORMAT=TLE`),{signal:AbortSignal.timeout(15000)});
+      const r=await fetch(PROXY(`${CELESTRAK_BASE}?CATNR=${s.norad}&FORMAT=TLE`),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),15000); return _c.signal; })()});
       if(!r.ok)return 0;
       return parseTLEText(await r.text());
     }catch(e){return 0;}
