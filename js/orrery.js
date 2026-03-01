@@ -190,7 +190,7 @@ function startTransitionToSpace(){
     document.getElementById('search-box')?.classList.add('slide-out');
     document.getElementById('bb')?.classList.add('slide-out');
     // Sync orrery bottom bar NERV/CTRL label
-    const oBtn=document.querySelector('#orrery-bb .nerv-btn');
+    const oBtn=document.getElementById('nerv-btn-orr');
     if(oBtn)oBtn.textContent=nervMode?'CTRL':'NERV';
 
     statEls.forEach(id=>{
@@ -1216,6 +1216,6 @@ window.outageThemeUpdate = function() {
   if (typeof _origOutageThemeUpdate === 'function') _origOutageThemeUpdate();
   if (_ssnVisible && _ssnData) setTimeout(drawSsnChart, 50);
   // Sync orrery-bb button label
-  const oBtn = document.querySelector('#orrery-bb .nerv-btn');
+  const oBtn = document.getElementById('nerv-btn-orr');
   if (oBtn) oBtn.textContent = nervMode ? 'CTRL' : 'NERV';
 };
