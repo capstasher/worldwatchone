@@ -13,6 +13,10 @@ const ctrlPaints={
   symbol:{'text-color':'rgba(1,200,70,0.55)','text-halo-color':'rgba(0,5,2,0.9)','icon-color':'rgba(1,200,70,0.55)'},
 };
 let nervCached=false;
+
+// ── Firefox: disable CRT (filter on html breaks mix-blend-mode in Firefox) ──
+const _isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
+
 function togNerv(){
   nervMode=!nervMode;document.body.classList.toggle('nerv',nervMode);
   // Update overlay text
@@ -38,7 +42,7 @@ function togNerv(){
     if(ncBR)ncBR.textContent='WORLDLINE: STABLE';
   }
   // Update button label
-  const btn=document.querySelector('.nerv-btn');
+  const btn=document.getElementById('nerv-btn-main');
   if(btn)btn.textContent=nervMode?'CTRL':'NERV';
   // Recolour outage overlay to match NERV/CTRL theme
   if(typeof outageThemeUpdate === 'function') outageThemeUpdate();
@@ -65,7 +69,7 @@ function togNerv(){
 let liveDivergence='1.048596';
 async function fetchDivergence(){
   try{
-    const r=await fetch('https://divergence.nyarchlinux.moe/api/divergence',{signal:AbortSignal.timeout(8000)});
+    const r=await fetch('https://divergence.nyarchlinux.moe/api/divergence',{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
     if(!r.ok)return;
     const d=await r.json();
     let v=String(d.divergence);
@@ -85,6 +89,7 @@ setInterval(fetchDivergence,60*1000);// refresh every minute
 // ====== CRT COLOUR FILTER ======
 let crtMode = false;
 function togCRT() {
+  if (_isFirefox) return;
   crtMode = !crtMode;
   document.documentElement.classList.toggle('crt', crtMode);
   // Persist preference
