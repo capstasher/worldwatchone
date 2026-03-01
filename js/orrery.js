@@ -763,7 +763,7 @@ async function fetchBodyNews(query){
   ];
   for(const url of proxyUrls){
     try{
-      const r=await fetch(url,{signal:AbortSignal.timeout(10000)});
+      const r=await fetch(url,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
@@ -888,8 +888,8 @@ function buildMoonDetail(jd){
 
 async function fetchJSON(url){
   const methods=[
-    async()=>{const r=await fetch(url,{signal:AbortSignal.timeout(8000)});if(!r.ok)throw new Error(r.status);return r.json();},
-    async()=>{const r=await fetch(PROXY(url),{signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error('proxy');return r.json();},
+    async()=>{const r=await fetch(url,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});if(!r.ok)throw new Error(r.status);return r.json();},
+    async()=>{const r=await fetch(PROXY(url),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })()});if(!r.ok)throw new Error('proxy');return r.json();},
       ];
   for(const m of methods){try{return await m();}catch(e){continue;}}
   return null;
@@ -993,12 +993,12 @@ async function loadSsnData() {
     const url = 'https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json';
     let data = null;
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      const r = await fetch(url, { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),12000); return _c.signal; })() });
       if (r.ok) data = await r.json();
     } catch(e) {}
     if (!data) {
       // try via proxy
-      const r2 = await fetch(PROXY_BASE + '/api/proxy?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(14000) });
+      const r2 = await fetch(PROXY_BASE + '/api/proxy?url=' + encodeURIComponent(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),14000); return _c.signal; })() });
       if (r2.ok) data = await r2.json();
     }
     if (!data || !Array.isArray(data)) throw new Error('No data');
