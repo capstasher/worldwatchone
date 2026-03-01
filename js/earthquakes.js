@@ -142,7 +142,7 @@ async function fetchEarthquakes(){
     ];
     for(const u of urls){
       try{
-        const r=await fetch(u,{signal:AbortSignal.timeout(12000)});
+        const r=await fetch(u,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),12000); return _c.signal; })()});
         if(!r.ok)continue;
         geo=await r.json();
         if(geo&&geo.features)break;
@@ -159,7 +159,7 @@ async function fetchEarthquakes(){
     // Inject significant quakes into OSINT feed
     eqData.filter(eq=>(eq.properties.mag||0)>=5).forEach(eq=>{
       const p=eq.properties;
-      addLiveItem('🌋 M'+p.mag+' EARTHQUAKE: '+(p.place||'Unknown'),
+      addLiveItem('M'+p.mag+' EARTHQUAKE: '+(p.place||'Unknown'),
         'USGS',new Date(p.time).toISOString(),
         p.url||'https://earthquake.usgs.gov','MULTI','al',false);
     });
