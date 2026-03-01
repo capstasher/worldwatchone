@@ -153,11 +153,39 @@ function initWeather(map) {
     x.beginPath(); x.arc(-13, 4, 2.5, 0, Math.PI*2); x.fill();
   }, 30));
 
+  // Flood icon — blue water drop shape
+  map.addImage('flood-icon', mkImg((x,s) => {
+    x.translate(s/2, s/2);
+    x.globalAlpha = 0.25;
+    x.fillStyle = '#1188ff';
+    x.beginPath(); x.arc(0, 2, 13, 0, Math.PI*2); x.fill();
+    x.globalAlpha = 1;
+    x.fillStyle = '#1188ff';
+    x.strokeStyle = '#55aaff';
+    x.lineWidth = 2;
+    // Water drop shape
+    x.beginPath();
+    x.moveTo(0, -12);
+    x.bezierCurveTo(8, -4, 10, 4, 10, 6);
+    x.bezierCurveTo(10, 13, -10, 13, -10, 6);
+    x.bezierCurveTo(-10, 4, -8, -4, 0, -12);
+    x.closePath();
+    x.globalAlpha = 0.6;
+    x.fill();
+    x.globalAlpha = 1;
+    x.stroke();
+    // Highlight
+    x.fillStyle = '#aaddff';
+    x.globalAlpha = 0.4;
+    x.beginPath(); x.arc(-3, 0, 3, 0, Math.PI*2); x.fill();
+  }, 30));
+
   // ── Disaster pin GeoJSON sources ─────────────────────────────────────────
   map.addSource('fires',     { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('storms',    { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('volcanoes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('tsunamis',  { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addSource('floods',    { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
   // FIRES — glow halo + icon
   map.addLayer({ id: 'fire-glow', type: 'circle', source: 'fires', paint: {
@@ -235,16 +263,29 @@ function initWeather(map) {
     'icon-allow-overlap': true
   }});
 
+  // FLOODS — blue circle with drop icon
+  map.addLayer({ id: 'flood-glow', type: 'circle', source: 'floods', paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 22, 5, 38],
+    'circle-color': '#1188ff', 'circle-opacity': 0.10, 'circle-blur': 1.2
+  }});
+  map.addLayer({ id: 'flood-dot', type: 'symbol', source: 'floods', layout: {
+    'icon-image': 'flood-icon',
+    'icon-size': 0.9,
+    'icon-allow-overlap': true
+  }});
+
   // Add to global layer map so togL() works
   lMap.fires    = ['fire-glow', 'fire-dot'];
   lMap.storms   = ['storm-glow', 'storm-dot', 'storm-track'];
   lMap.volcanoes= ['volc-glow', 'volc-dot'];
   lMap.tsunamis = ['tsunami-ring', 'tsunami-dot'];
+  lMap.floods   = ['flood-glow', 'flood-dot'];
 
   layerVis.fires    = true;
   layerVis.storms   = true;
   layerVis.volcanoes= true;
   layerVis.tsunamis = true;
+  layerVis.floods   = true;
 
   // Start data fetches
   fetchFIRMS();
@@ -353,12 +394,14 @@ function parseFIRMScsv(csv) {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return [];
   const headers = lines[0].split(',');
-  const latI  = headers.indexOf('latitude');
-  const lonI  = headers.indexOf('longitude');
-  const frpI  = headers.indexOf('frp');
-  const brightI = headers.indexOf('bright_ti4');
-  const dateI = headers.indexOf('acq_date');
-  const confI = headers.indexOf('confidence');
+  const latI     = headers.indexOf('latitude');
+  const lonI     = headers.indexOf('longitude');
+  const frpI     = headers.indexOf('frp');
+  const brightI  = headers.indexOf('bright_ti4');
+  const dateI    = headers.indexOf('acq_date');
+  const confI    = headers.indexOf('confidence');
+  const countryI = headers.indexOf('country_id');
+  const dayNightI= headers.indexOf('daynight');
   const features = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',');
@@ -366,15 +409,31 @@ function parseFIRMScsv(csv) {
     const lat = parseFloat(cols[latI]);
     const lon = parseFloat(cols[lonI]);
     if (isNaN(lat) || isNaN(lon)) continue;
-    const frp  = parseFloat(cols[frpI]) || 0;
-    const bright = parseFloat(cols[brightI]) || 0;
-    const conf = cols[confI] || 'n';
-    // Filter: skip low-confidence detections
+    const frp    = parseFloat(cols[frpI]);
+    const bright = parseFloat(cols[brightI]);
+    const conf   = (cols[confI] || '').trim().toLowerCase();
+    // Filter: skip nominal-low confidence ('l') but keep numeric low conf
     if (conf === 'l') continue;
+    const country  = countryI >= 0 ? (cols[countryI] || '').trim() : '';
+    const dayNight = dayNightI >= 0 ? (cols[dayNightI] || '').trim().toUpperCase() : '';
+    // Confidence display: VIIRS uses 'n'/'nominal','l'/'low','h'/'high'; MODIS uses 0-100
+    let confDisplay;
+    if (conf === 'n' || conf === 'nominal') confDisplay = 'NOMINAL';
+    else if (conf === 'h' || conf === 'high') confDisplay = 'HIGH';
+    else if (!isNaN(conf)) confDisplay = conf + '%';
+    else confDisplay = conf.toUpperCase() || 'NOMINAL';
     features.push({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [lon, lat] },
-      properties: { frp, bright, date: cols[dateI] || '', conf }
+      properties: {
+        frp:    isNaN(frp) ? 0 : frp,
+        bright: isNaN(bright) ? 0 : bright,
+        date:   cols[dateI] || '',
+        conf:   confDisplay,
+        country,
+        dayNight,
+        source: 'FIRMS'
+      }
     });
   }
   return features;
@@ -477,57 +536,83 @@ function parseGDACS(xml) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'text/xml');
   const items = doc.querySelectorAll('item');
-  const volcFeatures = [];
+  const volcFeatures    = [];
   const tsunamiFeatures = [];
   const gdacsFireFeatures = [];
+  const floodFeatures   = [];
 
   items.forEach(item => {
-    const title    = item.querySelector('title')?.textContent || '';
-    const link     = item.querySelector('link')?.textContent || '';
-    const pubDate  = item.querySelector('pubDate')?.textContent || '';
-    const desc     = item.querySelector('description')?.textContent || '';
+    const title   = item.querySelector('title')?.textContent || '';
+    const link    = item.querySelector('link')?.textContent || '';
+    const pubDate = item.querySelector('pubDate')?.textContent || '';
 
-    // GDACS uses georss:point or geo: namespace for coordinates
-    const geoPoint = item.querySelector('point')?.textContent ||
-                     item.getElementsByTagNameNS('*','point')[0]?.textContent || '';
-    const coords = geoPoint.trim().split(/\s+/).map(Number);
-    const lat = coords[0], lon = coords[1];
-    if (isNaN(lat) || isNaN(lon)) return;
-
-    // Alert level from title
-    const alertMatch = title.match(/\b(green|orange|red)\b/i);
-    const alertLevel = alertMatch
-      ? { green: 0, orange: 1, red: 2 }[alertMatch[1].toLowerCase()] || 0
-      : 0;
-
+    // Use gdacs:eventtype namespace tag for reliable classification
+    // Values: EQ=earthquake, TC=tropical cyclone, FL=flood, VO=volcano, WF=wildfire, DR=drought
+    const evType = (item.getElementsByTagNameNS('*','eventtype')[0]?.textContent || '').toUpperCase();
+    // Fall back to title-matching if eventtype missing
     const lcTitle = title.toLowerCase();
 
-    if (lcTitle.includes('volcan') || lcTitle.includes('eruption')) {
-      const name = title.replace(/volcano|eruption|alert/gi,'').trim();
+    // Coordinates from georss:point (lat lon) or geo:lat/geo:long
+    const geoPoint = item.getElementsByTagNameNS('*','point')[0]?.textContent || '';
+    let lat, lon;
+    if (geoPoint) {
+      const parts = geoPoint.trim().split(/\s+/).map(Number);
+      lat = parts[0]; lon = parts[1];
+    } else {
+      lat = parseFloat(item.getElementsByTagNameNS('*','lat')[0]?.textContent);
+      lon = parseFloat(item.getElementsByTagNameNS('*','long')[0]?.textContent);
+    }
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    // Alert level from gdacs:alertlevel or title
+    const alertTag = item.getElementsByTagNameNS('*','alertlevel')[0]?.textContent || '';
+    const alertMatch = alertTag || (title.match(/\b(green|orange|red)\b/i)?.[1] || 'green');
+    const alertLevel = { green: 0, orange: 1, red: 2 }[alertMatch.toLowerCase()] ?? 0;
+
+    // Country from gdacs:country
+    const country = item.getElementsByTagNameNS('*','country')[0]?.textContent || '';
+
+    const isVO = evType === 'VO' || lcTitle.includes('volcan') || lcTitle.includes('eruption');
+    const isTS = evType === 'TS' || evType === 'TSU' || lcTitle.includes('tsunami');
+    const isWF = evType === 'WF' || lcTitle.includes('forest fire') || lcTitle.includes('wildfire');
+    const isFL = evType === 'FL' || lcTitle.includes('flood');
+    const isTC = evType === 'TC' || lcTitle.includes('cyclone');
+    const isEQ = evType === 'EQ' || lcTitle.includes('earthquake');
+
+    const ty = alertLevel >= 2 ? 'al' : alertLevel >= 1 ? 'wa' : 'in';
+
+    if (isVO) {
+      const name = title.replace(/volcano|eruption|alert|green|orange|red/gi,'').replace(/\s+/g,' ').trim();
       volcFeatures.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
-        properties: { name, alert: alertLevel, title, link, pubDate }
+        properties: { name: name || title, alert: alertLevel, title, link, pubDate, country }
       });
-      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', 'al', false);
-    } else if (lcTitle.includes('tsunami')) {
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
+    } else if (isTS) {
       tsunamiFeatures.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
-        properties: { title, link, pubDate, alert: alertLevel }
+        properties: { title, link, pubDate, alert: alertLevel, country }
       });
-      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', 'al', false);
-    } else if (lcTitle.includes('forest fire') || lcTitle.includes('wildfire') || lcTitle.includes('fire notification')) {
-      // Wildfire/forest fire — add to fires layer with frp=0 (min size icon)
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
+    } else if (isWF) {
       gdacsFireFeatures.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
-        properties: { title, link, pubDate, alert: alertLevel, frp: 0, source: 'GDACS' }
+        properties: { title, link, pubDate, alert: alertLevel, frp: 0, bright: 0, conf: 'GDACS', date: pubDate, source: 'GDACS', country }
       });
-      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', alertLevel >= 1 ? 'al' : 'wa', false);
-    } else if (lcTitle.includes('flood') || lcTitle.includes('cyclone') || lcTitle.includes('earthquake')) {
-      // Other GDACS events — inject to feed only (no dedicated pin layer)
-      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', 'wa', false);
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
+    } else if (isFL) {
+      floodFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: { title, link, pubDate, alert: alertLevel, country }
+      });
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
+    } else if (isTC || isEQ) {
+      // Feed only — TC covered by NHC, EQ by USGS
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
     }
   });
 
@@ -535,24 +620,29 @@ function parseGDACS(xml) {
   if (vs) vs.setData({ type: 'FeatureCollection', features: volcFeatures });
   const ts = map.getSource('tsunamis');
   if (ts) ts.setData({ type: 'FeatureCollection', features: tsunamiFeatures });
+  const fls = map.getSource('floods');
+  if (fls) fls.setData({ type: 'FeatureCollection', features: floodFeatures });
 
-  // Merge GDACS wildfires into the fires layer (alongside FIRMS data)
-  if (gdacsFireFeatures.length > 0) {
-    const fs = map.getSource('fires');
-    if (fs) {
-      const existing = fs.serialize().data || { type: 'FeatureCollection', features: [] };
-      // Filter out any previous GDACS fire entries then re-add fresh ones
-      const firmsOnly = (existing.features || []).filter(f => f.properties?.source !== 'GDACS');
-      fs.setData({ type: 'FeatureCollection', features: [...firmsOnly, ...gdacsFireFeatures] });
-    }
+  // Merge GDACS wildfires into the fires layer alongside FIRMS data
+  const fs = map.getSource('fires');
+  if (fs) {
+    const existing = fs.serialize().data || { type: 'FeatureCollection', features: [] };
+    const firmsOnly = (existing.features || []).filter(f => f.properties?.source !== 'GDACS');
+    const merged = [...firmsOnly, ...gdacsFireFeatures];
+    fs.setData({ type: 'FeatureCollection', features: merged });
+    // Update fire counter to include GDACS fires when FIRMS is empty
+    const fireCnt = document.getElementById('fire-cnt');
+    if (fireCnt && parseInt(fireCnt.textContent) === 0) fireCnt.textContent = merged.length;
   }
 
   const vc = document.getElementById('volc-cnt');
   if (vc) vc.textContent = volcFeatures.length;
   const tc = document.getElementById('tsun-cnt');
   if (tc) tc.textContent = tsunamiFeatures.length;
+  const fc = document.getElementById('flood-cnt');
+  if (fc) fc.textContent = floodFeatures.length;
 
-  console.log(`[WWO] GDACS: ${volcFeatures.length} volcanoes, ${tsunamiFeatures.length} tsunamis, ${gdacsFireFeatures.length} wildfires`);
+  console.log(`[WWO] GDACS: ${volcFeatures.length} volc, ${tsunamiFeatures.length} tsun, ${gdacsFireFeatures.length} wf, ${floodFeatures.length} flood`);
 }
 
 // ── Click handlers for disaster pins ─────────────────────────────────────────
@@ -560,13 +650,25 @@ function initWeatherClicks(map) {
   // Fire click
   map.on('click', 'fire-dot', e => {
     const p = e.features[0].properties;
-    showDisasterDetail('WILDFIRE DETECTION', '🔥', [
-      ['FRP (MW)',      p.frp ? p.frp.toFixed(1) + ' MW' : 'N/A'],
-      ['BRIGHTNESS',   p.bright ? p.bright.toFixed(1) + ' K' : 'N/A'],
-      ['CONFIDENCE',   (p.conf || '').toUpperCase()],
-      ['DATE',         p.date || 'RECENT'],
-      ['SOURCE',       'NASA FIRMS / VIIRS S-NPP NRT'],
-    ], 'https://firms.modaps.eosdis.nasa.gov/map/');
+    const isGDACS = p.source === 'GDACS';
+    const loc = p.country ? p.country : `${parseFloat(e.lngLat.lat).toFixed(2)}°N, ${parseFloat(e.lngLat.lng).toFixed(2)}°E`;
+    const rows = [
+      ['LOCATION',   loc || 'UNKNOWN'],
+    ];
+    if (!isGDACS) {
+      rows.push(['FRP (MW)',    p.frp > 0 ? parseFloat(p.frp).toFixed(1) + ' MW' : '< 1 MW']);
+      rows.push(['BRIGHTNESS', p.bright > 0 ? parseFloat(p.bright).toFixed(1) + ' K' : '--']);
+      rows.push(['CONFIDENCE', p.conf || 'NOMINAL']);
+      rows.push(['ACQUIRED',   p.date || '--']);
+      rows.push(['DAY/NIGHT',  p.dayNight || '--']);
+    } else {
+      rows.push(['EVENT',      p.title || 'GDACS WILDFIRE']);
+      rows.push(['ALERT',      ['GREEN','ORANGE','RED'][p.alert] || 'GREEN']);
+      rows.push(['ISSUED',     p.pubDate ? new Date(p.pubDate).toDateString() : '--']);
+    }
+    rows.push(['SOURCE', isGDACS ? 'GDACS' : 'NASA FIRMS / VIIRS S-NPP NRT']);
+    showDisasterDetail('WILDFIRE DETECTION', '\u{1F525}', rows,
+      isGDACS ? (p.link || 'https://gdacs.org') : 'https://firms.modaps.eosdis.nasa.gov/map/');
   });
 
   // Storm click
@@ -602,8 +704,21 @@ function initWeatherClicks(map) {
     ], p.link || 'https://gdacs.org');
   });
 
+  // Flood click
+  map.on('click', 'flood-dot', e => {
+    const p = e.features[0].properties;
+    const alertLabels = ['GREEN', 'ORANGE', 'RED'];
+    showDisasterDetail('FLOOD EVENT', '\u{1F4A7}', [
+      ['LOCATION', p.country || 'UNKNOWN'],
+      ['ALERT LVL', alertLabels[p.alert] || 'GREEN'],
+      ['EVENT',    p.title || '--'],
+      ['ISSUED',   p.pubDate ? new Date(p.pubDate).toDateString() : '--'],
+      ['SOURCE',   'GDACS'],
+    ], p.link || 'https://gdacs.org');
+  });
+
   // Cursors
-  ['fire-dot','storm-dot','volc-dot','tsunami-dot'].forEach(id => {
+  ['fire-dot','storm-dot','volc-dot','tsunami-dot','flood-dot'].forEach(id => {
     map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
   });
