@@ -109,8 +109,8 @@ async function _fetchOONI() {
   // OONI aggregation endpoint — one row per country with anomaly counts
   const url = `https://api.ooni.io/api/v1/aggregation?since=${since}&until=${until}&axis_x=probe_cc&test_name=web_connectivity&format=JSON`;
   try {
-    const r = await fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(url)}`,
-      { signal: AbortSignal.timeout(15000) });
+    const _ctrl1 = new AbortController(); const _t1 = setTimeout(()=>_ctrl1.abort(),15000);
+    let r; try { r = await fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(url)}`,{ signal: _ctrl1.signal }); } finally { clearTimeout(_t1); }
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     const rows = d?.result || d?.data || [];
@@ -211,8 +211,8 @@ async function _applyOutageData() {
 async function _fetchBoundary(iso) {
   if (_boundaryCache[iso]) return;
   try {
-    const r = await fetch(`${PROXY_BASE}/api/boundary?iso=${iso}`,
-      { signal: AbortSignal.timeout(25000) });
+    const _ctrl2 = new AbortController(); const _t2 = setTimeout(()=>_ctrl2.abort(),25000);
+    let r; try { r = await fetch(`${PROXY_BASE}/api/boundary?iso=${iso}`,{ signal: _ctrl2.signal }); } finally { clearTimeout(_t2); }
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
     const geom = _overpassToGeoJSON(data);
