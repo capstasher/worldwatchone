@@ -164,7 +164,7 @@ async function fetchNewsQuery(qObj){
   ];
   for(const url of proxyUrls){
     try{
-      const r=await fetch(url,{signal:AbortSignal.timeout(8000)});
+      const r=await fetch(url,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
@@ -189,7 +189,7 @@ async function fetchRSSFeed(feed){
   ];
   for(const url of proxyUrls){
     try{
-      const r=await fetch(url,{signal:AbortSignal.timeout(8000)});
+      const r=await fetch(url,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
@@ -272,7 +272,7 @@ async function fetchTelegramChannel(ch){
 
   // ── METHOD 1: tg.i-c-a.su JSON API direct (CORS-ok on https://, no Worker needed) ──
   try{
-    const r=await fetch(TG_JSON_API+ch.channel+'?limit=20',{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(TG_JSON_API+ch.channel+'?limit=20',{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
     if(!r.ok)throw new Error('tg.i-c-a.su '+r.status);
     const d=await r.json();
     const msgs=Array.isArray(d)?d:(d.messages||[]);
@@ -299,7 +299,7 @@ async function fetchTelegramChannel(ch){
   const tgJsonUrl=TG_JSON_API+ch.channel+'?limit=20';
   for(const makeProxy of FREE_PROXIES){
     try{
-      const r=await fetch(makeProxy(tgJsonUrl),{signal:AbortSignal.timeout(8000)});
+      const r=await fetch(makeProxy(tgJsonUrl),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
       if(!r.ok)continue;
       const d=await r.json();
       const msgs=Array.isArray(d)?d:(d.messages||[]);
@@ -326,7 +326,7 @@ async function fetchTelegramChannel(ch){
   // ── METHOD 2: RSSHub direct (rsshub.app has open CORS, no Worker needed) ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
-    const r=await fetch(rssUrl,{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(rssUrl,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
     if(!r.ok)throw new Error('RSSHub direct '+r.status);
     const xml=await r.text();
     const items=parseRSSXml(xml);
@@ -353,7 +353,7 @@ async function fetchTelegramChannel(ch){
   const rsshubUrl=RSSHUB_TG+ch.channel;
   for(const makeProxy of FREE_PROXIES){
     try{
-      const r=await fetch(makeProxy(rsshubUrl),{signal:AbortSignal.timeout(8000)});
+      const r=await fetch(makeProxy(rsshubUrl),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
@@ -380,7 +380,7 @@ async function fetchTelegramChannel(ch){
   // ── METHOD 3: RSSHub via Worker proxy (last resort) ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
-    const r=await fetch(PROXY(rssUrl),{signal:AbortSignal.timeout(10000)});
+    const r=await fetch(PROXY(rssUrl),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })()});
     if(!r.ok)throw new Error('RSSHub proxy '+r.status);
     const xml=await r.text();
     const items=parseRSSXml(xml);
@@ -405,7 +405,7 @@ async function fetchTelegramChannel(ch){
 
   // ── METHOD 4: Telegram web preview HTML via Worker proxy ──
   try{
-    const r=await fetch(PROXY('https://t.me/s/'+ch.channel),{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(PROXY('https://t.me/s/'+ch.channel),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
     if(!r.ok)throw new Error('t.me '+r.status);
     const html=await r.text();
     const msgs=parseTelegramHTML(html,ch);
