@@ -142,9 +142,13 @@ const RSS_FEEDS=[
 ];
 
 // ── Feed fetch rate limiting ──────────────────────────────────────────────────
-// Google News RSS can be fetched via allorigins directly (no Worker needed).
-// This keeps the ~47 GN queries off the Worker entirely.
-const ALLORIGINS = url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+// Free public CORS proxies for Google News RSS — tried in order, no Worker quota used.
+// corsproxy.io and allorigins are independent services; if one is down the other covers.
+const FREE_PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 
 // Query rotation: cycle through all queries in batches so each 5-min refresh
 // only fires a subset, but every query gets a turn over ~15 minutes.
@@ -153,10 +157,10 @@ const QUERY_BATCH_SIZE = 16; // ~16 queries per cycle × 3 cycles = full rotatio
 
 async function fetchNewsQuery(qObj){
   const rssUrl=GN_BASE+qObj.q+GN_PARAMS;
-  // Try allorigins first (free, no Worker quota), fall back to Worker proxy
+  // Try all free proxies first — only fall back to Worker if all fail
   const proxyUrls=[
-    ALLORIGINS(rssUrl),
-    PROXY(rssUrl),
+    ...FREE_PROXIES.map(p=>p(rssUrl)),
+    PROXY(rssUrl), // Worker — last resort only
   ];
   for(const url of proxyUrls){
     try{
@@ -178,16 +182,26 @@ async function fetchNewsQuery(qObj){
 
 // ── Direct RSS feed fetcher ──────────────────────────────────────────────────
 async function fetchRSSFeed(feed){
-  try{
-    const r=await fetch(PROXY(feed.url),{signal:AbortSignal.timeout(10000)});
-    if(!r.ok)return;
-    const xml=await r.text();
-    const items=parseRSSXml(xml);
-    items.slice(0,6).reverse().forEach(item=>{
-      if(!item.title||item.title.length<10)return;
-      addLiveItem(item.title,feed.label,item.pubDate,item.link,feed.zone,feed.ty,false);
-    });
-  }catch(e){}
+  // Try free CORS proxies first, Worker as last resort
+  const proxyUrls=[
+    ...FREE_PROXIES.map(p=>p(feed.url)),
+    PROXY(feed.url),
+  ];
+  for(const url of proxyUrls){
+    try{
+      const r=await fetch(url,{signal:AbortSignal.timeout(8000)});
+      if(!r.ok)continue;
+      const xml=await r.text();
+      const items=parseRSSXml(xml);
+      if(items.length>0){
+        items.slice(0,6).reverse().forEach(item=>{
+          if(!item.title||item.title.length<10)return;
+          addLiveItem(item.title,feed.label,item.pubDate,item.link,feed.zone,feed.ty,false);
+        });
+        return;
+      }
+    }catch(e){continue;}
+  }
 }
 
 // ── Telegram channel fetcher — MULTI-METHOD with CORS proxy fallbacks ────────
@@ -281,6 +295,34 @@ async function fetchTelegramChannel(ch){
     }
   }catch(e){console.log(`[TG] ${ch.channel}: tg.i-c-a.su direct failed (${e.message})`);}
 
+  // ── METHOD 1b: tg.i-c-a.su via free CORS proxies (if direct blocked) ──
+  const tgJsonUrl=TG_JSON_API+ch.channel+'?limit=20';
+  for(const makeProxy of FREE_PROXIES){
+    try{
+      const r=await fetch(makeProxy(tgJsonUrl),{signal:AbortSignal.timeout(8000)});
+      if(!r.ok)continue;
+      const d=await r.json();
+      const msgs=Array.isArray(d)?d:(d.messages||[]);
+      if(msgs.length>0){
+        let added=0;
+        msgs.slice(-15).forEach(msg=>{
+          const text=typeof msg==='string'?msg:stripHtml(msg.text||msg.message||msg.caption||'');
+          if(!text||text.length<15)return;
+          const pubDate=msg.date?new Date(msg.date*1000):new Date();
+          if(pubDate.getTime()<cutoff)return;
+          const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
+          const media=extractTgMedia(msg);
+          const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
+          liveTelegramPosts.push(postObj);
+          if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
+          addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+          added++;
+        });
+        if(added>0){console.log(`[TG] ${ch.channel}: OK via tg.i-c-a.su+freeproxy (${added} items)`);return;}
+      }
+    }catch(e){continue;}
+  }
+
   // ── METHOD 2: RSSHub direct (rsshub.app has open CORS, no Worker needed) ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
@@ -306,6 +348,34 @@ async function fetchTelegramChannel(ch){
       if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub direct (${added} items)`);return;}
     }
   }catch(e){console.log(`[TG] ${ch.channel}: RSSHub direct failed (${e.message})`);}
+
+  // ── METHOD 2b: RSSHub via free CORS proxies ──
+  const rsshubUrl=RSSHUB_TG+ch.channel;
+  for(const makeProxy of FREE_PROXIES){
+    try{
+      const r=await fetch(makeProxy(rsshubUrl),{signal:AbortSignal.timeout(8000)});
+      if(!r.ok)continue;
+      const xml=await r.text();
+      const items=parseRSSXml(xml);
+      if(items.length>0){
+        let added=0;
+        items.slice(0,15).reverse().forEach(item=>{
+          const text=stripHtml(item.title||item.description||'');
+          if(!text||text.length<15)return;
+          const pubDate=item.pubDate?new Date(item.pubDate):new Date();
+          if(pubDate.getTime()<cutoff)return;
+          const link=item.link||`https://t.me/${ch.channel}`;
+          const media=extractRSSMedia(item.description||'');
+          const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
+          liveTelegramPosts.push(postObj);
+          if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
+          addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+          added++;
+        });
+        if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub+freeproxy (${added} items)`);return;}
+      }
+    }catch(e){continue;}
+  }
 
   // ── METHOD 3: RSSHub via Worker proxy (last resort) ──
   try{
