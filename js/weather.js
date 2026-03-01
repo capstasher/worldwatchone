@@ -324,7 +324,12 @@ async function fetchFIRMS() {
     const csv = await r.text();
     const features = parseFIRMScsv(csv);
     const src = map.getSource('fires');
-    if (src) src.setData({ type: 'FeatureCollection', features });
+    if (src) {
+      // Preserve any GDACS wildfire pins already in the layer
+      const existing = src.serialize().data || { type: 'FeatureCollection', features: [] };
+      const gdacsWildfires = (existing.features || []).filter(f => f.properties?.source === 'GDACS');
+      src.setData({ type: 'FeatureCollection', features: [...features, ...gdacsWildfires] });
+    }
     const el = document.getElementById('fire-cnt');
     if (el) el.textContent = features.length;
     console.log(`[WWO] FIRMS: ${features.length} fire detections`);
@@ -468,6 +473,7 @@ function parseGDACS(xml) {
   const items = doc.querySelectorAll('item');
   const volcFeatures = [];
   const tsunamiFeatures = [];
+  const gdacsFireFeatures = [];
 
   items.forEach(item => {
     const title    = item.querySelector('title')?.textContent || '';
@@ -505,6 +511,14 @@ function parseGDACS(xml) {
         properties: { title, link, pubDate, alert: alertLevel }
       });
       addLiveItem('🌊 ' + title, 'GDACS', pubDate, link, 'GEO', 'al', false);
+    } else if (lcTitle.includes('forest fire') || lcTitle.includes('wildfire') || lcTitle.includes('fire notification')) {
+      // Wildfire/forest fire — add to fires layer with frp=0 (min size icon)
+      gdacsFireFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: { title, link, pubDate, alert: alertLevel, frp: 0, source: 'GDACS' }
+      });
+      addLiveItem('🔥 ' + title, 'GDACS', pubDate, link, 'GEO', alertLevel >= 1 ? 'al' : 'wa', false);
     } else if (lcTitle.includes('flood') || lcTitle.includes('cyclone') || lcTitle.includes('earthquake')) {
       // Other GDACS events — inject to feed only (no dedicated pin layer)
       addLiveItem('⚠ ' + title, 'GDACS', pubDate, link, 'GEO', 'wa', false);
@@ -516,12 +530,23 @@ function parseGDACS(xml) {
   const ts = map.getSource('tsunamis');
   if (ts) ts.setData({ type: 'FeatureCollection', features: tsunamiFeatures });
 
+  // Merge GDACS wildfires into the fires layer (alongside FIRMS data)
+  if (gdacsFireFeatures.length > 0) {
+    const fs = map.getSource('fires');
+    if (fs) {
+      const existing = fs.serialize().data || { type: 'FeatureCollection', features: [] };
+      // Filter out any previous GDACS fire entries then re-add fresh ones
+      const firmsOnly = (existing.features || []).filter(f => f.properties?.source !== 'GDACS');
+      fs.setData({ type: 'FeatureCollection', features: [...firmsOnly, ...gdacsFireFeatures] });
+    }
+  }
+
   const vc = document.getElementById('volc-cnt');
   if (vc) vc.textContent = volcFeatures.length;
   const tc = document.getElementById('tsun-cnt');
   if (tc) tc.textContent = tsunamiFeatures.length;
 
-  console.log(`[WWO] GDACS: ${volcFeatures.length} volcanoes, ${tsunamiFeatures.length} tsunamis`);
+  console.log(`[WWO] GDACS: ${volcFeatures.length} volcanoes, ${tsunamiFeatures.length} tsunamis, ${gdacsFireFeatures.length} wildfires`);
 }
 
 // ── Click handlers for disaster pins ─────────────────────────────────────────
