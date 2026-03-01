@@ -62,11 +62,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--ft);overflow:hidde
 body.nerv #scanlines{background:repeating-linear-gradient(0deg,rgba(220,120,30,0.03) 0px,rgba(220,120,30,0.03) 1px,transparent 1px,transparent 3px);opacity:1;}
 
 /* ── CRT FILTER ──────────────────────────────────────────────────────────────*/
-html.crt{filter:url(#crt-filter);}
+body.crt{filter:url(#crt-filter);}
 #crt-vignette{position:fixed;inset:0;z-index:9997;pointer-events:none;opacity:0;transition:opacity 0.6s;background:radial-gradient(ellipse 100% 100% at 50% 50%,transparent 55%,rgba(0,0,0,0.6) 100%);}
-html.crt #crt-vignette{opacity:1;}
+body.crt #crt-vignette{opacity:1;}
 #crt-btn{transition:all 0.3s;letter-spacing:2px;}
-html.crt #crt-btn{opacity:1!important;border-color:var(--accent);color:var(--accent);}
+body.crt #crt-btn{opacity:1!important;border-color:var(--accent);color:var(--accent);}
 
 /* ── SEA GRADIENT — orange top, green bottom, colour-blends over the globe ───*/
 #sea-gradient{
@@ -80,6 +80,7 @@ html.crt #crt-btn{opacity:1!important;border-color:var(--accent);color:var(--acc
   );
   mix-blend-mode:color;
   transition:opacity 0.6s ease;
+  will-change:opacity;
 }
 
 /* ── VIGNETTE ────────────────────────────────────────────────────────────────*/
@@ -199,6 +200,7 @@ body.nerv .sd.a{background:#e07020;box-shadow:0 0 6px #e07020;}
    ═══════════════════════════════════════════════════════════════════════════ */
 #pl{
   top:54px;left:10px;width:216px;bottom:50px;
+  will-change:transform,opacity;
   overflow-y:auto;overflow-x:hidden;z-index:200;
   background:linear-gradient(180deg, var(--grad-deep) 0%, var(--panel) 60px, var(--panel) 100%);
 }
@@ -227,6 +229,7 @@ body.nerv #pl{background:linear-gradient(180deg, var(--grad-deep) 0%, var(--grad
    ═══════════════════════════════════════════════════════════════════════════ */
 #pr{
   top:54px;right:10px;width:292px;bottom:50px;
+  will-change:transform,opacity;
   display:flex;flex-direction:column;z-index:200;
   background-color:var(--panel);
   /* Hex grid — bolder than v1 */
@@ -503,8 +506,8 @@ body.nerv #orrery-bb{background:linear-gradient(90deg, var(--grad-deep) 0%, var(
 /* ═══════════════════════════════════════════════════════════════════════════
    SLIDE TRANSITIONS
    ═══════════════════════════════════════════════════════════════════════════ */
-#pl.slide-out{transform:translateX(-230px);opacity:0;transition:all 0.6s ease;}
-#pr.slide-out{transform:translateX(420px);opacity:0;transition:all 0.6s ease;}
+#pl.slide-out{transform:translateX(-230px);opacity:0;transition:transform 0.6s ease,opacity 0.6s ease;}
+#pr.slide-out{transform:translateX(420px);opacity:0;transition:transform 0.6s ease,opacity 0.6s ease;}
 #search-box.slide-out{opacity:0;transform:translateX(-50%) translateY(-60px);transition:all 0.5s ease;}
 #bb.slide-out{opacity:0;transform:translateY(40px);transition:all 0.4s ease;}
 #header .sys-info .disco{color:var(--danger)!important;animation:disco-blink 0.15s 6 alternate;}
