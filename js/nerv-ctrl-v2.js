@@ -86,10 +86,9 @@ setInterval(fetchDivergence,60*1000);// refresh every minute
 let crtMode = false;
 function togCRT() {
   crtMode = !crtMode;
-  const wrap = document.getElementById('crt-wrap');
-  if (wrap) wrap.classList.toggle('crt', crtMode);
+  document.documentElement.classList.toggle('crt', crtMode);
   // Persist preference
   try { localStorage.setItem('wwo_crt', crtMode ? '1' : '0'); } catch(e) {}
 }
 // Restore on load
-try { if (localStorage.getItem('wwo_crt') === '1') { crtMode = true; const w=document.getElementById('crt-wrap'); if(w)w.classList.add('crt'); } } catch(e) {}
+try { if (localStorage.getItem('wwo_crt') === '1') { crtMode = true; document.documentElement.classList.add('crt'); } } catch(e) {}
