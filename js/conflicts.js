@@ -323,21 +323,18 @@ async function initConflictZones(map) {
   console.log(`[WWO] Conflict zones rendered: ${features.length}`);
 
   const src = map.getSource('frontlines');
-  // Only overwrite static FRONTLINES if we actually got OSM boundaries.
-  // If all fetches failed (e.g. Worker down, CORS, Firefox compat) the static
-  // fallback data loaded at map init remains intact and visible.
   if (src && features.length > 0) {
     src.setData({ type: 'FeatureCollection', features });
-  } else if (features.length === 0) {
-    console.warn('[WWO] No OSM boundaries loaded — keeping static FRONTLINES fallback');
+    // Apply per-feature colour expressions only when we have OSM data with fill/line props.
+    // With static FRONTLINES fallback these props don't exist — ['get','fill'] returns null → black.
+    try {
+      map.setPaintProperty('fronts-fill', 'fill-color', ['get','fill']);
+      map.setPaintProperty('fronts-line', 'line-color', ['get','line']);
+      map.setPaintProperty('fronts-border','line-color', ['get','line']);
+    } catch(e) {}
+  } else {
+    console.warn('[WWO] No OSM boundaries — keeping static FRONTLINES fallback with default paint');
   }
-
-  // Override static paint with per-feature colour expressions
-  try {
-    map.setPaintProperty('fronts-fill', 'fill-color', ['get','fill']);
-    map.setPaintProperty('fronts-line', 'line-color', ['get','line']);
-    map.setPaintProperty('fronts-border','line-color', ['get','line']);
-  } catch(e) {}
 
   // Start the slow pulse — opacity breathes in/out over the fill layer
   _startConfPulse(map);
