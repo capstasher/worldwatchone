@@ -3,7 +3,7 @@
 // Boundaries: OSM Overpass via Worker /api/boundary — exact country shapes
 // Perf: canvas hatch throttled to ~10fps; boundaries cached for session
 
-const OUTAGE_REFRESH_MS = 4 * 60 * 1000; // 4min
+const OUTAGE_REFRESH_MS = 10 * 60 * 1000; // 10min (was 4min — OONI data is 24h window)
 
 const _boundaryCache = {}; // ISO2 → GeoJSON geometry
 
