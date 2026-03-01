@@ -228,7 +228,7 @@ window.addEventListener('unhandledrejection',function(e){
   <div style="display:flex;gap:18px"><span>UPLINK: STABLE</span><span>NODES: 847</span><span>LATENCY: <span id="ltn">23</span>ms</span></div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="nerv-btn" id="crt-btn" onclick="togCRT()" style="font-size:8px;padding:3px 10px;opacity:0.5" title="CRT colour filter">CRT</button>
-    <button class="nerv-btn" onclick="togNerv()">CTRL</button>
+    <button class="nerv-btn" id="nerv-btn-main" onclick="togNerv()">CTRL</button>
   </div>
 </div>
 
@@ -273,5 +273,15 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="js/space-weather.js?v=1772244833"></script>
 <script src="js/music.js?v=1772244833"></script>
 <script src="js/app.js?v=1772244833"></script>
+<script>
+if(typeof InstallTrigger!=='undefined'||navigator.userAgent.includes('Firefox')){
+  document.addEventListener('DOMContentLoaded',function(){
+    ['crt-btn','crt-btn-orr'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el)el.style.display='none';
+    });
+  });
+}
+</script>
 </body>
 </html>
