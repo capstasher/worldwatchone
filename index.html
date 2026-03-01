@@ -39,7 +39,10 @@ window.addEventListener('unhandledrejection',function(e){
   <div id="orrery-bb">
     <div id="mc-orr">☀ SOLAR SYSTEM ORRERY // REAL-TIME KEPLERIAN ORBITS</div>
     <div style="display:flex;gap:18px;font-family:var(--fm);font-size:10px;color:var(--text-dim)"><span>J2000 EPOCH</span><span>AU SCALE</span></div>
-    <button class="nerv-btn" onclick="togNerv()">CTRL</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="nerv-btn" id="crt-btn-orr" onclick="togCRT()" style="font-size:8px;padding:3px 10px;opacity:0.5" title="CRT colour filter">CRT</button>
+      <button class="nerv-btn" onclick="togNerv()">CTRL</button>
+    </div>
   </div>
 
   <div id="orrery-info">HOVER PLANET TO IDENTIFY // CLICK TO INSPECT</div>
