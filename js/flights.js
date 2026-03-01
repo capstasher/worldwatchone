@@ -20,7 +20,7 @@ async function getOskyToken(){
     ];
     let r=null;
     for(const pUrl of proxyUrls){
-      try{r=await fetch(pUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(8000)});if(r.ok)break;}catch(e){r=null;}
+      try{r=await fetch(pUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});if(r.ok)break;}catch(e){r=null;}
     }
     if(!r)throw new Error('All proxy token fetches failed');
     if(!r.ok)throw new Error('Token HTTP '+r.status);
@@ -87,12 +87,12 @@ async function fetchOpenSky(){
     async()=>{
       const token=await getOskyToken();
       if(!token)throw new Error('No OAuth2 token');
-      const r=await fetch(OPENSKY_URL,{headers:{'Authorization':'Bearer '+token},signal:AbortSignal.timeout(12000)});
+      const r=await fetch(OPENSKY_URL,{headers:{'Authorization':'Bearer '+token},signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),12000); return _c.signal; })()});
       if(!r.ok)throw new Error('Auth HTTP '+r.status);
       return r.json();
     },
     // Method 2: Worker proxy (anonymous fallback, no auth headers needed)
-    async()=>{const r=await fetch(OPENSKY_ENDPOINT,{signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error('worker '+r.status);return r.json();},
+    async()=>{const r=await fetch(OPENSKY_ENDPOINT,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),15000); return _c.signal; })()});if(!r.ok)throw new Error('worker '+r.status);return r.json();},
   ];
   for(const method of methods){
     try{
@@ -238,4 +238,3 @@ function mkCP(){
     return{type:"Feature",geometry:{type:"Point",coordinates:[c.lng,c.lat]},properties:{id:origIdx,name:c.name,city:c.city,fid:c.id,res:c.res,fps:c.fps,hasFeed:c.type==='img'?1:c.type==='ukcam'?3:c.type==='link'?2:0,region:c.region||''}};
   });
 }
-
