@@ -202,7 +202,7 @@ async function _applyOutageData() {
 
   // OSINT feed injection
   outageData.filter(c => c.score >= 3).forEach(c => {
-    addLiveItem(`🔌 INTERNET OUTAGE — ${c.name}`, 'OONI/CAIDA',
+    addLiveItem(`INTERNET OUTAGE — ${c.name}`, 'OONI/CAIDA',
       new Date().toISOString(), 'https://explorer.ooni.org', 'CYBER', 'al', false);
   });
 }
