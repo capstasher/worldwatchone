@@ -61,9 +61,14 @@ function addLiveItem(title,source,pubDate,link,zone,ty,isTweet=false,media=[]){
   if(media&&media.length>0){
     const thumbs=media.map((m,i)=>{
       const isVideo=m.type==='video';
-      const overlay=isVideo?`<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;pointer-events:none">▶</span>`:'';
-      return `<div class="fi-thumb" data-idx="${i}" style="position:relative;display:inline-block;width:60px;height:45px;overflow:hidden;border-radius:2px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);flex-shrink:0">` +
-        `<img src="${m.thumb||m.url}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.parentElement.style.display='none'">` +
+      const hasThumb=!!(m.thumb||m.url);
+      // Video with no thumbnail: show a styled placeholder instead of broken img
+      const imgOrPlaceholder=hasThumb
+        ? `<img src="${m.thumb||m.url}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.background='rgba(0,0,0,0.5)')">` 
+        : `<div style="width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center"></div>`;
+      const overlay=isVideo?`<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:18px;pointer-events:none;text-shadow:0 0 6px rgba(0,0,0,0.8)">▶</span>`:'';
+      return `<div class="fi-thumb" data-idx="${i}" style="position:relative;display:inline-block;width:60px;height:45px;overflow:hidden;border-radius:2px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);flex-shrink:0;background:#0a0a0a">` +
+        imgOrPlaceholder +
         overlay + `</div>`;
     }).join('');
     mediaHtml=`<div class="fi-media" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${thumbs}</div>`;
@@ -175,4 +180,3 @@ function parseRSSXml(xmlStr){
     return results;
   }catch(e){return[];}
 }
-
