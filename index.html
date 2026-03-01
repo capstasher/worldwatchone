@@ -7,7 +7,7 @@
 <script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.4/satellite.min.js"></script>
-<link rel="stylesheet" href="css/wwo.css?v=1772244833">
+<link rel="stylesheet" href="css/wwo-v2.css?v=1772244833">
 </head>
 <body class="nerv">
 
@@ -26,6 +26,10 @@ window.addEventListener('unhandledrejection',function(e){
 </script>
 
 <div id="map"></div>
+
+<!-- V2: Coloured zone overlay — large gradient masses like NERV terminal backgrounds -->
+<!-- CTRL: deep green wash bottom-left, NERV: deep amber wash bottom-left -->
+<div id="colour-zone"></div>
 
 <div id="transition-circle"></div>
 <div id="orrery-overlay">
