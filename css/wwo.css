@@ -6,6 +6,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--fu);overflow:hidde
 .maplibregl-ctrl{display:none!important;}
 #scanlines{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;transition:opacity 0.5s;}
 body.nerv #scanlines{background:repeating-linear-gradient(0deg,rgba(220,120,30,0.04) 0px,rgba(220,120,30,0.04) 1px,transparent 1px,transparent 3px);opacity:1;}
+
+/* CRT colour distortion filter */
+html.crt{filter:url(#crt-filter);}
+#crt-vignette{position:fixed;inset:0;z-index:9997;pointer-events:none;opacity:0;transition:opacity 0.6s;
+  background:radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0,0,0,0.55) 100%);}
+html.crt #crt-vignette{opacity:1;}
+#crt-btn{transition:all 0.3s;letter-spacing:2px;}
+html.crt #crt-btn{opacity:1!important;border-color:var(--accent);color:var(--accent);}
 #vignette{position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);}
 
 .panel{position:fixed;z-index:100;background:var(--panel);border:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:all 0.5s ease;}
