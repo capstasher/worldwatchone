@@ -325,7 +325,7 @@ async function fetchFIRMS() {
   try {
     // Key is stored server-side as a Worker secret — routed via /api/firms
     const url = `${PROXY_BASE}/api/firms?source=VIIRS_SNPP_NRT&days=1&area=world`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    const r = await fetch(url, { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),20000); return _c.signal; })() });
     if (!r.ok) throw new Error('FIRMS ' + r.status);
     const csv = await r.text();
     const features = parseFIRMScsv(csv);
@@ -342,7 +342,7 @@ async function fetchFIRMS() {
     // Inject major fires into feed
     const major = features.filter(f => (f.properties.frp || 0) > 100);
     if (major.length > 0) {
-      addLiveItem(`🔥 ${major.length} MAJOR FIRE DETECTIONS (FRP>100MW) — global`,
+      addLiveItem(`${major.length} MAJOR FIRE DETECTIONS (FRP>100MW) — global`,
         'NASA FIRMS', new Date().toISOString(),
         'https://firms.modaps.eosdis.nasa.gov', 'GEO', 'wa', false);
     }
@@ -385,7 +385,7 @@ async function fetchStorms() {
   try {
     // NHC publishes GeoJSON for active storms
     const url = 'https://www.nhc.noaa.gov/CurrentStorms.json';
-    const r = await fetch(PROXY(url), { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })() });
     if (!r.ok) throw new Error('NHC ' + r.status);
     const d = await r.json();
     const features = parseNHCStorms(d);
@@ -407,7 +407,7 @@ async function fetchStorms() {
 async function fetchStormsRSS() {
   try {
     const url = 'https://www.nhc.noaa.gov/index-at.xml';
-    const r = await fetch(PROXY(url), { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })() });
     if (!r.ok) return;
     const xml = await r.text();
     // Parse basic storm info from RSS
@@ -466,7 +466,7 @@ function parseNHCStorms(d) {
 async function fetchGDACS() {
   try {
     const url = 'https://www.gdacs.org/xml/rss.xml';
-    const r = await fetch(PROXY(url), { signal: AbortSignal.timeout(12000) });
+    const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),12000); return _c.signal; })() });
     if (!r.ok) throw new Error('GDACS ' + r.status);
     const xml = await r.text();
     parseGDACS(xml);
@@ -509,14 +509,14 @@ function parseGDACS(xml) {
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: { name, alert: alertLevel, title, link, pubDate }
       });
-      addLiveItem('🌋 ' + title, 'GDACS', pubDate, link, 'GEO', 'al', false);
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', 'al', false);
     } else if (lcTitle.includes('tsunami')) {
       tsunamiFeatures.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: { title, link, pubDate, alert: alertLevel }
       });
-      addLiveItem('🌊 ' + title, 'GDACS', pubDate, link, 'GEO', 'al', false);
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', 'al', false);
     } else if (lcTitle.includes('forest fire') || lcTitle.includes('wildfire') || lcTitle.includes('fire notification')) {
       // Wildfire/forest fire — add to fires layer with frp=0 (min size icon)
       gdacsFireFeatures.push({
@@ -524,10 +524,10 @@ function parseGDACS(xml) {
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: { title, link, pubDate, alert: alertLevel, frp: 0, source: 'GDACS' }
       });
-      addLiveItem('🔥 ' + title, 'GDACS', pubDate, link, 'GEO', alertLevel >= 1 ? 'al' : 'wa', false);
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', alertLevel >= 1 ? 'al' : 'wa', false);
     } else if (lcTitle.includes('flood') || lcTitle.includes('cyclone') || lcTitle.includes('earthquake')) {
       // Other GDACS events — inject to feed only (no dedicated pin layer)
-      addLiveItem('⚠ ' + title, 'GDACS', pubDate, link, 'GEO', 'wa', false);
+      addLiveItem(title, 'GDACS', pubDate, link, 'GEO', 'wa', false);
     }
   });
 
