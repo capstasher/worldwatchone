@@ -251,9 +251,9 @@ function initWeather(map) {
   fetchStorms();
   fetchGDACS();
 
-  setInterval(fetchFIRMS,   15 * 60 * 1000); // 15min
-  setInterval(fetchStorms,  10 * 60 * 1000); // 10min
-  setInterval(fetchGDACS,   15 * 60 * 1000); // 15min
+  setInterval(fetchFIRMS,   30 * 60 * 1000); // 30min (was 15)
+  setInterval(fetchStorms,  20 * 60 * 1000); // 20min (was 10)
+  setInterval(fetchGDACS,   30 * 60 * 1000); // 30min (was 15)
 
   console.log('[WWO] Weather: ready');
 }
