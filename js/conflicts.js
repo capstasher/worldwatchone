@@ -65,22 +65,14 @@ const CONF_ZONE_KEYS = {
 
   // ── Myanmar ───────────────────────────────────────────────────────────────
   // Junta controls ~21% of territory; resistance holds ~60% (BBC 2024)
-  'Shan State':      'rel:1812864',  // Three Brotherhood Alliance / MNDAA / TNLA; very active
-  'Rakhine State':   'rel:1812865',  // Arakan Army controls most; near Sittwe & Kyaukphyu
-  'Kachin State':    'rel:1812862',  // KIA active; junta airstrikes on civilians
-  'Sagaing Region':  'rel:1812872',  // Most intense PDF activity; junta airstrike epicentre
-  'Chin State':      'rel:1812861',  // Chin National Army + CDF seizing towns; active front
-  'Kayah State':     'rel:1812869',  // KNDF holds most territory; longest high-intensity battle
-  'Karen State':     'rel:1812868',  // KNLA cleared junta bases 2025; Bago border expanding
-  'Mandalay Region': 'rel:1812873',  // PDF/TNLA ops; surrounded on 3 sides; airstrikes
-  'Bago Region':     'rel:1812874',  // KNU-backed PDF expanding; Sittang River fighting
+  'Myanmar':       'MM',           // whole country — junta ~21% territory, resistance ~60%
 
   // ── DRC ───────────────────────────────────────────────────────────────────
   // M23 captured Goma (Jan 2025), Bukavu (Feb 2025), Uvira (Dec 2025)
   // Active FARDC counteroffensive in Masisi district (Feb 2026)
   'North Kivu':      'rel:5642698',  // M23 HQ; Masisi district FARDC offensive ongoing
   'South Kivu':      'rel:2340463',  // M23 captured Bukavu + Uvira; ceasefire fragile
-  'Ituri':           'rel:2340454',  // ADF active + M23 expanding influence
+  'Ituri':           'name:Ituri|CD|4',  // ADF active + M23 expanding influence
   'Maniema':         'rel:2340458',  // Lower intensity; M23 expansion risk from Kivu
 
   // ── Yemen ─────────────────────────────────────────────────────────────────
@@ -149,8 +141,7 @@ const REGION_ZONE_MAP = {
                    'North Kordofan','South Kordofan','West Kordofan','Blue Nile',
                    'Gezira','Sennar','White Nile'],
   // Myanmar: junta ~21% territory; resistance ~60%; fighting across almost all states/regions
-  'Myanmar':      ['Shan State','Rakhine State','Kachin State','Sagaing Region','Chin State',
-                   'Kayah State','Karen State','Mandalay Region','Bago Region'],
+  'Myanmar':      ['Myanmar'],
   // DRC: M23 (Rwanda-backed) controls Goma, Bukavu, Uvira; active FARDC counteroffensive
   'DRC':          ['North Kivu','South Kivu','Ituri','Maniema'],
   'Yemen':        ['Yemen'],
@@ -214,10 +205,6 @@ const _ZONE_MAX_PTS = {
   'Sennar':         1000,
   'White Nile':     1000,
   // Myanmar regions — complex terrain
-  'Sagaing Region': 2000,
-  'Chin State':     1500,
-  'Mandalay Region':1500,
-  'Bago Region':    1200,
 };
 const _DEFAULT_MAX_PTS = 4000;
 
