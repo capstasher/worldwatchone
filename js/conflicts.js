@@ -9,7 +9,6 @@
 
 const CONF_ZONE_KEYS = {
   // ── Ukraine ──────────────────────────────────────────────────────────────
-  // Oblast relations — these are the Ukrainian admin boundary relations
   'Donetsk':         'rel:71973',
   'Luhansk':         'rel:71971',
   'Zaporizhzhia':    'rel:71980',
@@ -17,19 +16,24 @@ const CONF_ZONE_KEYS = {
   'Kharkiv':         'rel:71254',
   'Sumy':            'rel:71250',
   'Crimea':          'rel:72639',
-  'Kursk':           'rel:176017',
+  'Kursk':           'rel:72223',   // Kursk Oblast confirmed
 
-  // ── Iran / Operation Epic Fury ────────────────────────────────────────────
-  'Iran':            'IR',
-
-  // ── Gulf states struck by Iranian missiles ────────────────────────────────
-  'Qatar':           'QA',
-  'Bahrain':         'BH',
-  'UAE':             'AE',
-  'Kuwait':          'KW',
-  'Saudi Arabia':    'SA',
-  'Jordan':          'JO',
-  'Iraq':            'IQ',
+  // ── Iran — provinces struck by US/Israel in Operation Epic Fury (Feb–Mar 2026) ──
+  'Iran':                  'IR',           // whole country (fallback / heat zone)
+  'Tehran Province':       'rel:537701',   // confirmed OSM rel
+  'Isfahan Province':      'rel:241475',   // confirmed OSM rel
+  'Hormozgan Province':    'rel:3385992',  // confirmed OSM rel; Minab school massacre 148 killed
+  'Bushehr Province':      'name:Bushehr Province|IR|4',
+  'Kermanshah Province':   'name:Kermanshah Province|IR|4',
+  'East Azerbaijan':       'name:East Azerbaijan Province|IR|4',
+  'Qom Province':          'name:Qom Province|IR|4',
+  'Alborz Province':       'name:Alborz Province|IR|4',
+  'Zanjan Province':       'name:Zanjan Province|IR|4',
+  'Ilam Province':         'name:Ilam Province|IR|4',
+  'Lorestan Province':     'name:Lorestan Province|IR|4',
+  'Fars Province':         'name:Fars Province|IR|4',
+  'West Azerbaijan':       'name:West Azerbaijan Province|IR|4',
+  'Iraq':                  'IQ',           // IRGC militia bases; US bases targeted by Iran
 
   // ── Israel / Palestine ────────────────────────────────────────────────────
   'Israel':          'IL',
@@ -43,27 +47,41 @@ const CONF_ZONE_KEYS = {
   'Syria':           'SY',
 
   // ── Sudan ─────────────────────────────────────────────────────────────────
-  'Khartoum':        'rel:1305407',
+  // RSF controls all 5 Darfur states + pushing into Kordofan (as of Mar 2026)
+  // SAF recaptured Khartoum, Gezira; active Kordofan & Blue Nile fronts
+  'Khartoum':        'rel:3774673',
   'North Darfur':    'rel:1305408',
-  'West Darfur':     'rel:3718437',
-  'South Darfur':    'rel:1305410',
-  'North Kordofan':  'rel:1305409',
-  'South Kordofan':  'rel:1305411',
-  'Blue Nile':       'rel:1305412',
+  'West Darfur':     'name:West Darfur|SD|4',
+  'Central Darfur':  'rel:1305403',  // RSF capital Nyala nearby, active fighting
+  'South Darfur':    'rel:1305410',  // RSF controls Nyala, active ops
+  'East Darfur':     'rel:1305402',  // RSF factions active, drone strikes
+  'North Kordofan':  'rel:1305409',  // El Obeid besieged; major active front
+  'South Kordofan':  'rel:1305411',  // Kadugli under siege, SPLM-N active
+  'West Kordofan':   'rel:1305416',  // RSF captured Al-Fulah, drone strikes
+  'Blue Nile':       'rel:1305412',  // SAF/RSF/SPLM-N clashes; Ethiopia border
+  'Gezira':          'rel:13162974',  // SAF recaptured Jan 2025; still volatile, IDP returns
+  'Sennar':          'rel:3774667',  // RSF drone strike on Singa army base Feb 2026
+  'White Nile':      'rel:1305415',  // RSF drone strikes; SAF prepped for Khartoum defence
 
   // ── Myanmar ───────────────────────────────────────────────────────────────
-  'Shan State':      'rel:1812864',
-  'Rakhine State':   'rel:1812865',
-  'Kachin State':    'rel:1812862',
-  'Sagaing Region':  'rel:1812872',
-  'Kayah State':     'rel:1812869',
-  'Karen State':     'rel:1812868',
+  // Junta controls ~21% of territory; resistance holds ~60% (BBC 2024)
+  'Shan State':      'rel:1812864',  // Three Brotherhood Alliance / MNDAA / TNLA; very active
+  'Rakhine State':   'rel:1812865',  // Arakan Army controls most; near Sittwe & Kyaukphyu
+  'Kachin State':    'rel:1812862',  // KIA active; junta airstrikes on civilians
+  'Sagaing Region':  'rel:1812872',  // Most intense PDF activity; junta airstrike epicentre
+  'Chin State':      'rel:1812861',  // Chin National Army + CDF seizing towns; active front
+  'Kayah State':     'rel:1812869',  // KNDF holds most territory; longest high-intensity battle
+  'Karen State':     'rel:1812868',  // KNLA cleared junta bases 2025; Bago border expanding
+  'Mandalay Region': 'rel:1812873',  // PDF/TNLA ops; surrounded on 3 sides; airstrikes
+  'Bago Region':     'rel:1812874',  // KNU-backed PDF expanding; Sittang River fighting
 
   // ── DRC ───────────────────────────────────────────────────────────────────
-  'North Kivu':      'rel:2340462',
-  'South Kivu':      'rel:2340463',
-  'Ituri':           'rel:2340454',
-  'Maniema':         'rel:2340458',
+  // M23 captured Goma (Jan 2025), Bukavu (Feb 2025), Uvira (Dec 2025)
+  // Active FARDC counteroffensive in Masisi district (Feb 2026)
+  'North Kivu':      'rel:5642698',  // M23 HQ; Masisi district FARDC offensive ongoing
+  'South Kivu':      'rel:2340463',  // M23 captured Bukavu + Uvira; ceasefire fragile
+  'Ituri':           'rel:2340454',  // ADF active + M23 expanding influence
+  'Maniema':         'rel:2340458',  // Lower intensity; M23 expansion risk from Kivu
 
   // ── Yemen ─────────────────────────────────────────────────────────────────
   'Yemen':           'YE',
@@ -72,12 +90,13 @@ const CONF_ZONE_KEYS = {
   'Somalia':         'SO',
 
   // ── Sahel ─────────────────────────────────────────────────────────────────
+  // JNIM blockading Bamako; ISGS active; Russia Africa Corps deployed
   'Burkina Faso':    'BF',
   'Mali':            'ML',
   'Niger':           'NE',
 
   // ── Ethiopia ──────────────────────────────────────────────────────────────
-  'Amhara Region':   'rel:1579819',
+  'Amhara Region':   'rel:1707264',
   'Tigray Region':   'rel:1579815',
 
   // ── Horn of Africa ────────────────────────────────────────────────────────
@@ -86,47 +105,65 @@ const CONF_ZONE_KEYS = {
   // ── Mozambique ────────────────────────────────────────────────────────────
   'Cabo Delgado':    'rel:2400484',
 
+  // ── Nigeria ───────────────────────────────────────────────────────────────
+  // Boko Haram/ISWAP killing 2,266+ in H1 2025 alone; bandits control 725 villages
+  'Borno':           'rel:3720358',  // ISWAP/Boko Haram heartland; daily attacks
+  'Zamfara':         'rel:3720342',  // Bandit insurgency epicentre; 725 villages occupied
+  'Yobe':            'rel:3720356',  // ISWAP stronghold region; Lake Chad Basin
+
   // ── Pakistan / Afghanistan ────────────────────────────────────────────────
   'Pakistan':        'PK',
   'Afghanistan':     'AF',
-
-  // ── Taiwan / SCS ──────────────────────────────────────────────────────────
-  'Taiwan':          'TW',
 
   // ── Latin America ─────────────────────────────────────────────────────────
   'Haiti':           'HT',
   'Venezuela':       'VE',
   'Colombia':        'CO',
   'Jalisco':         'rel:2340636',
-  'Michoacan':       'rel:2340656',
-  'Tamaulipas':      'rel:2340640',
-  'Guanajuato':      'rel:2340644',
+  'Michoacan':       'rel:2340636',
+  'Tamaulipas':      'rel:2415518',
+  'Guanajuato':      'rel:2340909',
 };
 
 // Map from conflicts.json region → zone key(s) to fetch
 // A region can span multiple zone keys (e.g. Sudan = Khartoum + Darfur states)
+// Updated Mar 2026: added Sudan states (Kordofan/Darfur full set + Gezira/Sennar/White Nile),
+//   Myanmar (Chin/Mandalay/Bago), Nigeria (Borno/Zamfara/Yobe). Removed Taiwan (tension, not active war).
 const REGION_ZONE_MAP = {
   'Ukraine':      ['Donetsk','Luhansk','Zaporizhzhia','Kherson','Kharkiv','Sumy','Crimea'],
-  'Iran':         ['Iran'],
-  'Gulf':         ['Qatar','Bahrain','UAE','Kuwait','Saudi Arabia','Jordan'],
+  'Iran':         ['Tehran Province','Isfahan Province','Hormozgan Province','Bushehr Province',
+                   'Kermanshah Province','East Azerbaijan','Qom Province','Alborz Province',
+                   'Zanjan Province','Ilam Province','Lorestan Province','Fars Province',
+                   'West Azerbaijan','Iran'],
+  // Gulf states — removed as polygon zones; now city-level CONF point markers in data.js
+  // (UAE/Qatar/Kuwait/Bahrain/Saudi Arabia/Jordan were struck by Iranian missiles but are
+  //  not ground war zones — intercepts/debris, not invasion)
+  'Iraq':         ['Iraq'],
   'Iraq':         ['Iraq'],
   'Israel':       ['Israel'],
   'Palestine':    ['Gaza','West Bank'],
   'Lebanon':      ['South Lebanon'],
   'Syria':        ['Syria'],
-  'Sudan':        ['Khartoum','North Darfur','West Darfur','South Darfur','North Kordofan','South Kordofan','Blue Nile'],
-  'Myanmar':      ['Shan State','Rakhine State','Kachin State','Sagaing Region','Kayah State','Karen State'],
+  // Sudan: RSF controls all Darfur (5 states), pushing into Kordofan; SAF holds east/centre
+  'Sudan':        ['Khartoum','North Darfur','West Darfur','Central Darfur','South Darfur','East Darfur',
+                   'North Kordofan','South Kordofan','West Kordofan','Blue Nile',
+                   'Gezira','Sennar','White Nile'],
+  // Myanmar: junta ~21% territory; resistance ~60%; fighting across almost all states/regions
+  'Myanmar':      ['Shan State','Rakhine State','Kachin State','Sagaing Region','Chin State',
+                   'Kayah State','Karen State','Mandalay Region','Bago Region'],
+  // DRC: M23 (Rwanda-backed) controls Goma, Bukavu, Uvira; active FARDC counteroffensive
   'DRC':          ['North Kivu','South Kivu','Ituri','Maniema'],
   'Yemen':        ['Yemen'],
-  'Red Sea':      ['Yemen'],   // use Yemen coast as proxy
+  'Red Sea':      ['Yemen'],   // Houthi ops; Yemen coast as proxy
   'Somalia':      ['Somalia'],
+  // Sahel: JNIM blockading Bamako; ISGS active across all 3; Russia Africa Corps deployed
   'Sahel':        ['Burkina Faso','Mali','Niger'],
   'Ethiopia':     ['Amhara Region','Tigray Region'],
   'South Sudan':  ['South Sudan'],
   'Mozambique':   ['Cabo Delgado'],
+  // Nigeria: Boko Haram/ISWAP + bandit insurgency — 2,266+ killed H1 2025 alone
+  'Nigeria':      ['Borno','Zamfara','Yobe'],
   'Pakistan':     ['Pakistan','Afghanistan'],
-  'Taiwan Strait':['Taiwan'],
-  'SCS':          ['Taiwan'],
   'Haiti':        ['Haiti'],
   'Venezuela':    ['Venezuela'],
   'Colombia':     ['Colombia'],
@@ -146,14 +183,41 @@ function _confLineColor(int) {
 // Per-zone max vertex count — small territories need fewer points to avoid
 // glitching at low zoom; large countries can handle more detail
 const _ZONE_MAX_PTS = {
-  'Gaza':          300,
-  'West Bank':     500,
-  'South Lebanon': 800,
-  'Bahrain':       400,
-  'Kuwait':        600,
-  'Qatar':         600,
-  'Crimea':        1200,
-  'Kursk':         1200,
+  'Gaza':           300,
+  'West Bank':      500,
+  'South Lebanon':  800,
+  // Small island/peninsula states — enough for clean coastlines without over-detail
+  // Iran provinces
+  'Tehran Province':     1500,
+  'Isfahan Province':    2000,
+  'Hormozgan Province':  2000,   // complex coastline + islands
+  'Bushehr Province':    1500,
+  'Kermanshah Province': 1500,
+  'East Azerbaijan':     1500,
+  'Qom Province':        1000,
+  'Alborz Province':     800,
+  'Zanjan Province':     1000,
+  'Ilam Province':       1000,
+  'Lorestan Province':   1200,
+  'Fars Province':       2000,
+  'West Azerbaijan':     1500,
+  'Iran':                4000,   // whole country fallback
+  // Iraq
+  'Iraq':                3000,
+  'Venezuela':      4000,
+  'Colombia':       4000,
+  'Crimea':         1200,
+  'Kursk':          1200,
+  // Sudan states — simplified; most are large desert polygons
+  'Khartoum':       1500,
+  'Gezira':         1000,
+  'Sennar':         1000,
+  'White Nile':     1000,
+  // Myanmar regions — complex terrain
+  'Sagaing Region': 2000,
+  'Chin State':     1500,
+  'Mandalay Region':1500,
+  'Bago Region':    1200,
 };
 const _DEFAULT_MAX_PTS = 4000;
 
@@ -233,9 +297,14 @@ function _confToGeoJSON(data, zoneName) {
 }
 
 const _confBoundaryCache = {};  // separate from outage cache
+// Pre-populate from static zone-geo-cache.js if loaded before this script
+if (typeof ZONE_GEO_CACHE !== 'undefined') Object.assign(_confBoundaryCache, ZONE_GEO_CACHE);
 
 async function _fetchConfBoundary(key, zoneName) {
   if (_confBoundaryCache[key]) return;
+  // name: keys are harvester-only — resolved at build time into zone-geo-cache.js
+  // If not in cache already, skip (don't attempt runtime name lookup)
+  if (key.startsWith('name:')) { console.warn('[WWO] name: key not in cache, run harvester:', key); return; }
   try {
     const param = key.startsWith('rel:') ? `rel=${key.slice(4)}` : `iso=${key}`;
     const ctrl = new AbortController();
