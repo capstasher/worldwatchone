@@ -591,3 +591,7 @@ body:not(.nerv) .ssn-rb.active{background:rgba(0,224,90,0.08);}
 .ssn-tip-val{color:var(--accent);font-weight:700;}
 .ssn-tip-smooth{color:var(--text-dim);font-size:9px;}
 #ssn-source{padding:5px 14px;font-family:var(--ft);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);border-top:1px solid var(--border);}
+
+.trk-pip--wa{background:#4488ff;box-shadow:0 0 5px rgba(68,136,255,.4);}
+.trk-lv--wa{color:#4488ff;border:1px solid rgba(68,136,255,.25);background:rgba(68,136,255,.08);}
+.trk-section-label{font-family:var(--ft);font-size:7px;letter-spacing:2px;color:var(--text-dim);padding:6px 8px 3px;text-transform:uppercase;opacity:0.6;border-top:1px solid rgba(255,255,255,0.04);margin-top:2px;}
