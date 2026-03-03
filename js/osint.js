@@ -99,9 +99,9 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'OSINTdefender',       label:'OSINT Defender',           zone:'OSINT',     ty:'al', twitter:'sentdefender'},
   {channel:'Intel_Alert',         label:'Intel Alert',              zone:'OSINT',     ty:'al'},
   {channel:'conflictnews',        label:'Conflict News',            zone:'OSINT',     ty:'al'},
-  {channel:'IntelSlava',          label:'Intel Slava Z',            zone:'OSINT',     ty:'al'},
   {channel:'globalcrisismedia',   label:'Global Crisis Media',      zone:'OSINT',     ty:'al'},
   {channel:'intelnews',           label:'Intel News',               zone:'OSINT',     ty:'in'},
+  {channel:'visegrad24',          label:'Visegrád 24',              zone:'OSINT',     ty:'in'},
   // IRAN / ISRAEL / LEBANON (combined tracker)
   {channel:'IranIntl_En',         label:'Iran International',       zone:'Iran War',  ty:'al', twitter:'IranIntl_En'},
   {channel:'MiddleEastSpectator', label:'Middle East Spectator',    zone:'Iran War',  ty:'wa'},
@@ -115,7 +115,6 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'PalestineChronicle',  label:'Palestine Chronicle',      zone:'Palestine', ty:'wa'},
   {channel:'IDF_English',         label:'IDF Spokesperson',         zone:'Palestine', ty:'al'},
   // UKRAINE / RUSSIA
-  {channel:'UkraineNow',          label:'Ukraine NOW',              zone:'Ukraine',   ty:'al'},
   {channel:'DefMon3',             label:'Defense Monitor',          zone:'Ukraine',   ty:'al'},
   {channel:'ua_war_monitor',      label:'UA War Monitor',           zone:'Ukraine',   ty:'al'},
   {channel:'rybar_en',            label:'Rybar (EN)',               zone:'Ukraine',   ty:'wa'},
