@@ -153,12 +153,24 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="lt on" data-l="outages" onclick="togL(this)"><div class="ind"></div>NET OUTAGES<span class="cnt" id="outc">0</span></div>
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
   <div class="dvd"></div>
-  <div class="panel-title">ACTIVE TRACKERS</div>
-  <div class="lt trk" onclick="openCTOByRegion('Pak-Afghan')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">PAK–AFGHAN WAR</span><span class="trk-sub">TTP · Durand Line · cross-border ops</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
-  <div class="lt trk" onclick="openCTOByRegion('Ukraine')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">UKRAINE FRONT</span><span class="trk-sub">Donbas · Kursk · Zaporizhzhia</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
-  <div class="lt trk" onclick="openCTOByRegion('Gaza')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">GAZA / WEST BANK</span><span class="trk-sub">IDF ops · ceasefire status</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
-  <div class="lt trk" onclick="openCTOByRegion('Sudan')"><div class="trk-pip trk-pip--elev"></div><div class="trk-body"><span class="trk-name">SUDAN / DARFUR</span><span class="trk-sub">SAF vs RSF · El Fasher siege</span></div><span class="trk-lv trk-lv--elev">ELEVATED</span></div>
-  <div class="dvd"></div>
+   <div class="panel-title">ACTIVE TRACKERS</div>
+   <div class="trk-section-label">ACTIVE WARS</div>
+   <div class="lt trk" onclick="openCTOByRegion('Iran War')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">IRAN · ISRAEL · LEBANON</span><span class="trk-sub">Op. Epic Fury · Hezbollah · Gulf strikes</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Ukraine')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">UKRAINE · RUSSIA</span><span class="trk-sub">Donbas · Kursk · Zaporizhzhia</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Palestine')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">PALESTINE · WEST BANK</span><span class="trk-sub">Gaza · IDF · Hamas · ceasefire</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Sudan')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">SUDAN · DARFUR</span><span class="trk-sub">SAF vs RSF · El Fasher siege</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('DRC')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">DRC · CONGO</span><span class="trk-sub">M23 · Goma · FARDC counteroffensive</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Myanmar')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">MYANMAR</span><span class="trk-sub">Junta · PDF · ethnic resistance fronts</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="trk-section-label">INSURGENCIES</div>
+   <div class="lt trk" onclick="openCTOByRegion('Pak-Afghan')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">PAK–AFGHAN · TTP</span><span class="trk-sub">Durand Line · cross-border strikes · BLA</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Yemen')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">YEMEN · RED SEA</span><span class="trk-sub">Houthi · shipping attacks · Bab el-Mandeb</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Sahel')"><div class="trk-pip trk-pip--elev"></div><div class="trk-body"><span class="trk-name">SAHEL · WEST AFRICA</span><span class="trk-sub">JNIM · Mali · Burkina Faso · Niger</span></div><span class="trk-lv trk-lv--elev">ELEVATED</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Somalia')"><div class="trk-pip trk-pip--elev"></div><div class="trk-body"><span class="trk-name">SOMALIA · AL-SHABAAB</span><span class="trk-sub">Al-Shabaab · ATMIS · Mogadishu</span></div><span class="trk-lv trk-lv--elev">ELEVATED</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('Mexico')"><div class="trk-pip trk-pip--elev"></div><div class="trk-body"><span class="trk-name">MEXICO · CARTELS</span><span class="trk-sub">CJNG · Sinaloa · narco-state ops</span></div><span class="trk-lv trk-lv--elev">ELEVATED</span></div>
+   <div class="trk-section-label">FLASH POINTS</div>
+   <div class="lt trk" onclick="openCTOByRegion('Taiwan Strait')"><div class="trk-pip trk-pip--wa"></div><div class="trk-body"><span class="trk-name">TAIWAN STRAIT</span><span class="trk-sub">PLA exercises · ADIZ incursions</span></div><span class="trk-lv trk-lv--wa">WATCH</span></div>
+   <div class="lt trk" onclick="openCTOByRegion('SCS')"><div class="trk-pip trk-pip--wa"></div><div class="trk-body"><span class="trk-name">SOUTH CHINA SEA</span><span class="trk-sub">Spratlys · Philippines · PLA-N</span></div><span class="trk-lv trk-lv--wa">WATCH</span></div>
+   <div class="dvd"></div>
   <div class="panel-title">DISASTER PINS</div>
   <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind ind--fire"></div>WILDFIRES<span class="cnt" id="fire-cnt">0</span></div>
   <div class="lt on" data-l="storms" onclick="togL(this)"><div class="ind ind--storm"></div>STORMS<span class="cnt" id="storm-cnt">0</span></div>
