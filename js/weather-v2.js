@@ -301,15 +301,14 @@ function initWeather(map) {
   fetchStorms();
   fetchGDACS();
 
-  setInterval(fetchFIRMS,   30 * 60 * 1000); // 30min (was 15)
-  setInterval(fetchStorms,  20 * 60 * 1000); // 20min (was 10)
-  setInterval(fetchGDACS,   30 * 60 * 1000); // 30min (was 15)
+  setInterval(fetchFIRMS,   30 * 60 * 1000); // 30min
+  setInterval(fetchStorms,  20 * 60 * 1000); // 20min
+  setInterval(fetchGDACS,   30 * 60 * 1000); // 30min
 
   console.log('[WWO] Weather: ready');
 }
 
 // ── Weather tile toggle ───────────────────────────────────────────────────────
-// Lazy: only register a source/layer when the user first activates it
 const wxLayerLoaded = {};
 
 function setWeatherLayer(key) {
@@ -331,12 +330,11 @@ function setWeatherLayer(key) {
 
   activeWeatherLayer = key;
 
-  // Hide sea-gradient overlay when weather layer active (it washes out wx colours)
+  // Hide sea-gradient overlay when weather layer active
   var sg = document.getElementById('sea-gradient');
   if (sg) sg.style.opacity = key ? '0' : '';
 
   if (key) {
-    // Lazy-register source + layer on first use
     if (!wxLayerLoaded[key]) {
       const code = OWM_LAYERS[key];
       try {
@@ -373,7 +371,6 @@ function setWeatherLayer(key) {
 // ── NASA FIRMS — wildfire detections ─────────────────────────────────────────
 async function fetchFIRMS() {
   try {
-    // Key is stored server-side as a Worker secret — routed via /api/firms
     const url = `${PROXY_BASE}/api/firms?source=VIIRS_SNPP_NRT&days=1&area=world`;
     const r = await fetch(url, { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),20000); return _c.signal; })() });
     if (!r.ok) throw new Error('FIRMS ' + r.status);
@@ -381,7 +378,6 @@ async function fetchFIRMS() {
     const features = parseFIRMScsv(csv);
     const src = map.getSource('fires');
     if (src) {
-      // Preserve any GDACS wildfire pins already in the layer
       const existing = src.serialize().data || { type: 'FeatureCollection', features: [] };
       const gdacsWildfires = (existing.features || []).filter(f => f.properties?.source === 'GDACS');
       src.setData({ type: 'FeatureCollection', features: [...features, ...gdacsWildfires] });
@@ -389,7 +385,6 @@ async function fetchFIRMS() {
     const el = document.getElementById('fire-cnt');
     if (el) el.textContent = features.length;
     console.log(`[WWO] FIRMS: ${features.length} fire detections`);
-    // Inject major fires into feed
     const major = features.filter(f => (f.properties.frp || 0) > 100);
     if (major.length > 0) {
       addLiveItem(`${major.length} MAJOR FIRE DETECTIONS (FRP>100MW) — global`,
@@ -421,11 +416,9 @@ function parseFIRMScsv(csv) {
     const frp    = parseFloat(cols[frpI]);
     const bright = parseFloat(cols[brightI]);
     const conf   = (cols[confI] || '').trim().toLowerCase();
-    // Filter: skip nominal-low confidence ('l') but keep numeric low conf
     if (conf === 'l') continue;
     const country  = countryI >= 0 ? (cols[countryI] || '').trim() : '';
     const dayNight = dayNightI >= 0 ? (cols[dayNightI] || '').trim().toUpperCase() : '';
-    // Confidence display: VIIRS uses 'n'/'nominal','l'/'low','h'/'high'; MODIS uses 0-100
     let confDisplay;
     if (conf === 'n' || conf === 'nominal') confDisplay = 'NOMINAL';
     else if (conf === 'h' || conf === 'high') confDisplay = 'HIGH';
@@ -460,8 +453,7 @@ async function fetchStorms() {
     if (src) src.setData({ type: 'FeatureCollection', features });
     const el = document.getElementById('storm-cnt');
     if (el) el.textContent = features.filter(f => f.properties.type === 'center').length;
-    console.log();
-    // Fetch ATCF cone polygons per active storm
+    console.log(`[WWO] NHC: ${features.filter(f => f.properties.type === 'center').length} active storms`);
     if (d.activeStorms) _fetchStormCones(d.activeStorms);
   } catch(e) {
     try { await fetchStormsRSS(); } catch(e2) { console.warn('[WWO] NHC error:', e.message); }
@@ -469,12 +461,6 @@ async function fetchStorms() {
 }
 
 // ── Fetch ATCF cone-of-uncertainty polygons per storm ─────────────────────────
-// NHC publishes per-storm GIS packages at:
-//   https://www.nhc.noaa.gov/gis/forecast/archive/{id}_5day_cone_no_line_and_wind.kmz (binary)
-//   https://www.nhc.noaa.gov/gis/forecast/archive/{id}_pgn.dat (text cone)
-// The most reliable public format is the 5-day track GeoJSON via undocumented endpoint:
-//   https://www.nhc.noaa.gov/CurrentStorms.json → storm.forecastTrackGeoJSON
-// Fallback: construct cone from forecastTrack points + wind radii
 async function _fetchStormCones(storms) {
   const coneFeatures = [];
   const catColors = ['#00aaff','#00ff88','#ffcc00','#ff8800','#ff4400','#ff0000'];
@@ -483,8 +469,8 @@ async function _fetchStormCones(storms) {
     if (!id) continue;
     const cat = storm.classification === 'TD' ? 0 : storm.classification === 'TS' ? 1 : parseInt(storm.intensity) || 0;
     const color = catColors[Math.min(cat, 5)];
-    // Try NHC GeoJSON cone endpoint (available for Atlantic + Pacific storms)
-    const coneUrl = ;
+    // Try NHC .pgn cone endpoint
+    const coneUrl = `https://www.nhc.noaa.gov/gis/forecast/archive/${id}_5day_pgn.dat`;
     try {
       const r = await fetch(PROXY(coneUrl), { signal: AbortSignal.timeout(8000) });
       if (r.ok) {
@@ -510,13 +496,12 @@ async function _fetchStormCones(storms) {
   }
   const coneSrc = map.getSource('storm-cones');
   if (coneSrc) coneSrc.setData({ type: 'FeatureCollection', features: coneFeatures });
-  console.log();
+  console.log(`[WWO] Storm cones: ${coneFeatures.length} polygons loaded`);
 }
 
 // Parse NHC .pgn (polygon) dat file — space-separated lon lat pairs
 function _parsePGN(text) {
-  return text.trim().split(/
-/).map(line => {
+  return text.trim().split(/\n/).map(line => {
     const parts = line.trim().split(/\s+/);
     const lon = parseFloat(parts[0]), lat = parseFloat(parts[1]);
     return (!isNaN(lon) && !isNaN(lat)) ? [lon, lat] : null;
@@ -527,12 +512,10 @@ function _parsePGN(text) {
 function _buildApproxCone(trackCoords, intensity) {
   if (trackCoords.length < 2) return null;
   const side1 = [], side2 = [];
-  // Cone expands from ~30nm at T+0 to ~200nm at T+120h (NHC 2/3 rule)
   const radii = [55, 75, 100, 130, 165, 200]; // km at each 24h step approx
   trackCoords.forEach((coord, i) => {
     const [lon, lat] = coord;
     const r = (radii[Math.min(i, radii.length-1)] / 111); // deg approx
-    // Perpendicular: rotate track bearing ±90°
     let bearing = 0;
     if (i < trackCoords.length - 1) {
       const dx = trackCoords[i+1][0] - lon, dy = trackCoords[i+1][1] - lat;
@@ -554,7 +537,6 @@ async function fetchStormsRSS() {
     const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })() });
     if (!r.ok) return;
     const xml = await r.text();
-    // Parse basic storm info from RSS
     const items = parseRSSXml(xml);
     items.forEach(item => {
       if (item.title && item.title.match(/Advisory|Outlook|Discussion/)) {
@@ -574,7 +556,6 @@ function parseNHCStorms(d) {
                  parseInt(storm.intensity) || 0;
     const wind = parseInt(storm.intensity) || 0;
     const color = catColors[Math.min(cat, catColors.length-1)];
-    // Current center
     if (storm.latitudeNumeric && storm.longitudeNumeric) {
       features.push({
         type: 'Feature',
@@ -587,7 +568,6 @@ function parseNHCStorms(d) {
         }
       });
     }
-    // Forecast track if available
     if (storm.forecastTrack && storm.forecastTrack.coordinates) {
       features.push({
         type: 'Feature',
@@ -595,7 +575,6 @@ function parseNHCStorms(d) {
         properties: { type: 'track', color, name: storm.name }
       });
     }
-    // Feed injection
     addLiveItem(
       `🌀 ${storm.classification || 'TC'} ${storm.name || storm.id} — ${wind}kt winds`,
       'NHC', new Date().toISOString(),
@@ -631,13 +610,9 @@ function parseGDACS(xml) {
     const link    = item.querySelector('link')?.textContent || '';
     const pubDate = item.querySelector('pubDate')?.textContent || '';
 
-    // Use gdacs:eventtype namespace tag for reliable classification
-    // Values: EQ=earthquake, TC=tropical cyclone, FL=flood, VO=volcano, WF=wildfire, DR=drought
     const evType = (item.getElementsByTagNameNS('*','eventtype')[0]?.textContent || '').toUpperCase();
-    // Fall back to title-matching if eventtype missing
     const lcTitle = title.toLowerCase();
 
-    // Coordinates from georss:point (lat lon) or geo:lat/geo:long
     const geoPoint = item.getElementsByTagNameNS('*','point')[0]?.textContent || '';
     let lat, lon;
     if (geoPoint) {
@@ -649,12 +624,10 @@ function parseGDACS(xml) {
     }
     if (isNaN(lat) || isNaN(lon)) return;
 
-    // Alert level from gdacs:alertlevel or title
     const alertTag = item.getElementsByTagNameNS('*','alertlevel')[0]?.textContent || '';
     const alertMatch = alertTag || (title.match(/\b(green|orange|red)\b/i)?.[1] || 'green');
     const alertLevel = { green: 0, orange: 1, red: 2 }[alertMatch.toLowerCase()] ?? 0;
 
-    // Country from gdacs:country
     const country = item.getElementsByTagNameNS('*','country')[0]?.textContent || '';
 
     const isVO = evType === 'VO' || lcTitle.includes('volcan') || lcTitle.includes('eruption');
@@ -696,7 +669,6 @@ function parseGDACS(xml) {
       });
       addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
     } else if (isTC || isEQ) {
-      // Feed only — TC covered by NHC, EQ by USGS
       addLiveItem(title, 'GDACS', pubDate, link, 'GEO', ty, false);
     }
   });
@@ -708,14 +680,12 @@ function parseGDACS(xml) {
   const fls = map.getSource('floods');
   if (fls) fls.setData({ type: 'FeatureCollection', features: floodFeatures });
 
-  // Merge GDACS wildfires into the fires layer alongside FIRMS data
   const fs = map.getSource('fires');
   if (fs) {
     const existing = fs.serialize().data || { type: 'FeatureCollection', features: [] };
     const firmsOnly = (existing.features || []).filter(f => f.properties?.source !== 'GDACS');
     const merged = [...firmsOnly, ...gdacsFireFeatures];
     fs.setData({ type: 'FeatureCollection', features: merged });
-    // Update fire counter to include GDACS fires when FIRMS is empty
     const fireCnt = document.getElementById('fire-cnt');
     if (fireCnt && parseInt(fireCnt.textContent) === 0) fireCnt.textContent = merged.length;
   }
@@ -732,7 +702,6 @@ function parseGDACS(xml) {
 
 // ── Click handlers for disaster pins ─────────────────────────────────────────
 function initWeatherClicks(map) {
-  // Fire click
   map.on('click', 'fire-dot', e => {
     const p = e.features[0].properties;
     const isGDACS = p.source === 'GDACS';
@@ -756,7 +725,6 @@ function initWeatherClicks(map) {
       isGDACS ? (p.link || 'https://gdacs.org') : 'https://firms.modaps.eosdis.nasa.gov/map/');
   });
 
-  // Storm click
   map.on('click', 'storm-dot', e => {
     const p = e.features[0].properties;
     showDisasterDetail('TROPICAL CYCLONE — ' + (p.name || p.id), '🌀', [
@@ -767,7 +735,6 @@ function initWeatherClicks(map) {
     ], `https://www.nhc.noaa.gov`);
   });
 
-  // Volcano click
   map.on('click', 'volc-dot', e => {
     const p = e.features[0].properties;
     const alertLabels = ['GREEN', 'ORANGE', 'RED'];
@@ -779,7 +746,6 @@ function initWeatherClicks(map) {
     ], p.link || 'https://gdacs.org');
   });
 
-  // Tsunami click
   map.on('click', 'tsunami-dot', e => {
     const p = e.features[0].properties;
     showDisasterDetail('TSUNAMI WARNING', '🌊', [
@@ -789,7 +755,6 @@ function initWeatherClicks(map) {
     ], p.link || 'https://gdacs.org');
   });
 
-  // Flood click
   map.on('click', 'flood-dot', e => {
     const p = e.features[0].properties;
     const alertLabels = ['GREEN', 'ORANGE', 'RED'];
@@ -802,7 +767,6 @@ function initWeatherClicks(map) {
     ], p.link || 'https://gdacs.org');
   });
 
-  // Cursors
   ['fire-dot','storm-dot','volc-dot','tsunami-dot','flood-dot'].forEach(id => {
     map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
