@@ -1,5 +1,8 @@
 // ====== SUBMARINE CABLE LAYER + AIS PROXIMITY ALERT ======
 // Cable routes: TeleGeography GeoJSON — served locally as data/cable-geo.json
+// Download from:
+//   https://raw.githubusercontent.com/telegeography/www.submarinecablemap.com/master/web/public/api/v3/cable/cable-geo.json
+// Save to: data/cable-geo.json alongside your other data files.
 
 // Loiter detection config — tunable
 const CABLE_ALERT_CONFIG = {
@@ -219,14 +222,14 @@ function initCables(map) {
   map.addSource('cable-alerts', { type:'geojson', data:{ type:'FeatureCollection', features:[] } });
 
   map.addLayer({ id:'cable-glow', type:'line', source:'cables', paint:{
-    'line-color': '#00aaff',
+    'line-color': '#ffaa00',
     'line-width': ['interpolate',['linear'],['zoom'], 1,3, 5,5, 10,8],
     'line-opacity': 0.18,
     'line-blur': 3
   }});
 
   map.addLayer({ id:'cable-line', type:'line', source:'cables', paint:{
-    'line-color': '#00ccff',
+    'line-color': '#ffcc00',
     'line-width': ['interpolate',['linear'],['zoom'], 1,1.2, 5,2, 10,3],
     'line-opacity': 0.85
   }});
