@@ -487,10 +487,23 @@ if(zonePosts.length>0){
 }
 
 let sr='<h3>MONITORED SOURCES</h3>';
-sr+='<div style="font-size:8px;color:var(--text-dim);margin-bottom:6px;font-family:var(--fm)">LIVE TELEGRAM CHANNELS</div>';
-TELEGRAM_OSINT_CHANNELS.forEach(ch=>sr+=`<div style="padding:3px 0;font-family:var(--fm);font-size:10px;border-bottom:1px solid rgba(40,80,140,0.04)"><span style="color:#1d9bf0">t.me/${ch.channel}</span> ${ch.label}${ch.twitter?' <span style="color:var(--text-dim);font-size:8px">(X: @'+ch.twitter+')</span>':''}</div>`);
-sr+='<div style="font-size:8px;color:var(--text-dim);margin:8px 0 6px;font-family:var(--fm)">NEWS FEEDS</div>';
-FEED_QUERIES.filter(q=>q.zone===c.region||c.region==='MULTI').slice(0,5).forEach(q=>sr+=`<div style="padding:3px 0;font-family:var(--fm);font-size:10px;border-bottom:1px solid rgba(40,80,140,0.04)">Google News: ${q.q.replace(/\+/g,' ')}</div>`);
+// Zone-specific Telegram channels + global OSINT channels
+const zoneTg=TELEGRAM_OSINT_CHANNELS.filter(ch=>ch.zone===c.region||ch.zone==='OSINT');
+sr+='<div style="font-size:8px;color:var(--text-dim);margin-bottom:6px;font-family:var(--fm);letter-spacing:1px">TELEGRAM CHANNELS</div>';
+zoneTg.forEach(ch=>{
+  sr+=`<div style="padding:4px 0;font-family:var(--fm);font-size:10px;border-bottom:1px solid rgba(40,80,140,0.08);display:flex;justify-content:space-between;align-items:center">`;
+  sr+=`<a href="https://t.me/${ch.channel}" target="_blank" rel="noopener" style="color:#1d9bf0;text-decoration:none;flex:1" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'"><span style="opacity:0.6;font-size:8px">t.me/</span>${ch.channel}</a>`;
+  sr+=`<span style="color:var(--text-dim);font-size:8px;margin-left:8px">${ch.label}${ch.twitter?' <span style="font-size:7px">@'+ch.twitter+'</span>':''}</span>`;
+  sr+=`</div>`;
+});
+const zoneNews=FEED_QUERIES.filter(q=>q.zone===c.region);
+if(zoneNews.length>0){
+  sr+='<div style="font-size:8px;color:var(--text-dim);margin:10px 0 6px;font-family:var(--fm);letter-spacing:1px">GOOGLE NEWS FEEDS</div>';
+  zoneNews.forEach(q=>{
+    const url='https://news.google.com/rss/search?q='+q.q+'&hl=en-US&gl=US&ceid=US:en';
+    sr+=`<div style="padding:4px 0;font-family:var(--fm);font-size:10px;border-bottom:1px solid rgba(40,80,140,0.08)"><a href="${url}" target="_blank" rel="noopener" style="color:#34a853;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">↗ ${q.q.replace(/\+/g,' ')}</a></div>`;
+  });
+}
 
 document.getElementById('cto-body').innerHTML=`<div class="cto-s">${st}</div><div class="cto-s"><h3>LIVE INTELLIGENCE <span style="color:var(--danger);font-size:8px">&#9679; LIVE</span> <span style="color:#1d9bf0;font-size:7px;border:1px solid rgba(29,155,240,0.3);padding:1px 4px;border-radius:2px;margin-left:4px">REAL DATA</span></h3><div id="cto-feed"></div></div><div class="cto-s">${tl}</div><div class="cto-s">${sr}</div>`;
 document.getElementById('cto').classList.add('show');
@@ -522,10 +535,15 @@ map.flyTo({center:[c.lng,c.lat],zoom:6,duration:1000});}
 function closeCTO(){document.getElementById('cto').classList.remove('show');ctoRegion=null;if(ctoI){clearInterval(ctoI);ctoI=null;}}
 
 // ── Open tracker directly by region name (for sidebar shortcut buttons) ──────
+// Composite trackers map multiple data regions into one combined view
+const TRACKER_REGION_MAP={
+  'Iran War':  ['Iran','Lebanon','Gulf','Red Sea','Iran War'],
+  'Palestine': ['Palestine','Gaza','West Bank'],
+};
 function openCTOByRegion(region){
-  // Find the highest-intensity CONF entry for this region
-  const matches = CONF.map((c,i)=>({c,i})).filter(({c})=>c.region===region);
-  if(!matches.length){ console.warn('[WWO] No CONF entry for region:', region); return; }
-  const best = matches.reduce((a,b)=> b.c.int > a.c.int ? b : a);
+  const searchRegions=TRACKER_REGION_MAP[region]||[region];
+  const matches=CONF.map((c,i)=>({c,i})).filter(({c})=>searchRegions.includes(c.region));
+  if(!matches.length){console.warn('[WWO] No CONF entry for tracker:',region,searchRegions);return;}
+  const best=matches.reduce((a,b)=>b.c.int>a.c.int?b:a);
   openCTO(best.i);
 }
