@@ -184,14 +184,92 @@ async function fetchCableGeo() {
   _cableSegments = _buildSegmentIndex(geo);
   _cablesLoaded = true;
 
+  // Normalise geometry for MapLibre globe — flatten MultiLineString → individual
+  // LineString features, and clamp all coordinates to [-180,180] / [-90,90].
+  // Long cables that cross the antimeridian are split so MapLibre doesn't
+  // draw a line straight through the globe interior.
+  const normalised = _normaliseCableGeo(geo);
+
   if (_cableLayersAdded) {
     const src = map.getSource('cables');
     if (src) {
-      src.setData(geo);
-      console.log(`[WWO] Cables: map source updated with ${geo.features.length} features, ${_cableSegments.length} segments`);
+      src.setData(normalised);
+      console.log(`[WWO] Cables: map source updated with ${normalised.features.length} features, ${_cableSegments.length} segments`);
     }
   }
   return geo;
+}
+
+// ── Normalise cable GeoJSON for MapLibre globe ────────────────────────────────
+// Flattens MultiLineString → LineStrings, clamps coords, splits on antimeridian
+// crossings so MapLibre doesn't draw chords through the globe.
+function _normaliseCableGeo(geo) {
+  const features = [];
+  if (!geo || !geo.features) return { type: 'FeatureCollection', features };
+
+  geo.features.forEach(f => {
+    const name = f.properties?.name || 'Unknown Cable';
+    const id   = f.properties?.id   || '';
+    let lineStrings = [];
+
+    if (f.geometry?.type === 'LineString') {
+      lineStrings = [f.geometry.coordinates];
+    } else if (f.geometry?.type === 'MultiLineString') {
+      lineStrings = f.geometry.coordinates;
+    }
+
+    lineStrings.forEach(coords => {
+      // Clamp coordinates and split at antimeridian
+      const segments = _splitAtAntimeridian(coords);
+      segments.forEach(seg => {
+        if (seg.length >= 2) {
+          features.push({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: seg },
+            properties: { name, id }
+          });
+        }
+      });
+    });
+  });
+
+  return { type: 'FeatureCollection', features };
+}
+
+// Split a coordinate array into sub-arrays wherever it crosses the antimeridian
+// (i.e. consecutive points differ by more than 180° in longitude).
+function _splitAtAntimeridian(coords) {
+  if (!coords || coords.length === 0) return [];
+  const segments = [];
+  let current = [[_clampLon(coords[0][0]), _clampLat(coords[0][1])]];
+
+  for (let i = 1; i < coords.length; i++) {
+    const lon = _clampLon(coords[i][0]);
+    const lat = _clampLat(coords[i][1]);
+    const prevLon = current[current.length - 1][0];
+
+    if (Math.abs(lon - prevLon) > 180) {
+      // Antimeridian crossing — start a new segment
+      segments.push(current);
+      current = [[lon, lat]];
+    } else {
+      current.push([lon, lat]);
+    }
+  }
+  if (current.length >= 2) segments.push(current);
+  return segments;
+}
+
+function _clampLon(lon) {
+  // Normalise to [-180, 180]
+  lon = parseFloat(lon) || 0;
+  while (lon > 180)  lon -= 360;
+  while (lon < -180) lon += 360;
+  return Math.round(lon * 1e5) / 1e5;
+}
+
+function _clampLat(lat) {
+  return Math.max(-90, Math.min(90, Math.round((parseFloat(lat) || 0) * 1e5) / 1e5));
 }
 
 // ── Init map layers ────────────────────────────────────────────────────────────
@@ -202,17 +280,17 @@ function initCables(map) {
 
   // Glow halo (wide, faint)
   map.addLayer({ id: 'cable-glow', type: 'line', source: 'cables', paint: {
-    'line-color': '#0088ff',
-    'line-width': ['interpolate', ['linear'], ['zoom'], 1, 1.5, 5, 3, 10, 5],
-    'line-opacity': 0.07,
-    'line-blur': 4
+    'line-color': '#00aaff',
+    'line-width': ['interpolate', ['linear'], ['zoom'], 1, 3, 5, 5, 10, 8],
+    'line-opacity': 0.18,
+    'line-blur': 3
   }});
 
   // Main cable line
   map.addLayer({ id: 'cable-line', type: 'line', source: 'cables', paint: {
-    'line-color': '#0055cc',
-    'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.5, 5, 1.2, 10, 2],
-    'line-opacity': 0.55
+    'line-color': '#00ccff',
+    'line-width': ['interpolate', ['linear'], ['zoom'], 1, 1.2, 5, 2, 10, 3],
+    'line-opacity': 0.85
   }});
 
   // Alert dots for loitering vessels
