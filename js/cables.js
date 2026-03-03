@@ -85,15 +85,12 @@ function _updateVesselHistory(vessel) {
   if (!_vesselHistory[id]) _vesselHistory[id] = [];
   const hist = _vesselHistory[id];
 
-  // Prune entries older than window
   const cutoff = now - windowMs * 2;
   while (hist.length && hist[0].ts < cutoff) hist.shift();
 
-  // Only track vessels potentially near cables (coarse bbox filter first)
   const { distKm, cable } = _nearestCable(vessel.lat, vessel.lon);
 
   if (distKm > CABLE_ALERT_CONFIG.radiusKm * 3) {
-    // Far from any cable — remove from history to save memory
     if (hist.length) _vesselHistory[id] = [];
     if (_flaggedVessels.has(id)) _unflagVessel(id);
     return;
@@ -101,12 +98,11 @@ function _updateVesselHistory(vessel) {
 
   hist.push({ lat: vessel.lat, lon: vessel.lon, ts: now, speed: vessel.speed || 0, distKm, cable });
 
-  // Check loiter condition: vessel within radius for >= loiterMinutes
   const windowStart = now - windowMs;
   const inWindow = hist.filter(h => h.ts >= windowStart);
-  if (inWindow.length < 3) return; // need multiple fixes
+  if (inWindow.length < 3) return;
 
-  const allNear = inWindow.every(h => h.distKm <= CABLE_ALERT_CONFIG.radiusKm);
+  const allNear    = inWindow.every(h => h.distKm <= CABLE_ALERT_CONFIG.radiusKm);
   const slowEnough = inWindow.every(h => h.speed <= CABLE_ALERT_CONFIG.speedKnots || h.speed === 0);
   const timeSpanMs = inWindow[inWindow.length-1].ts - inWindow[0].ts;
 
@@ -127,7 +123,6 @@ function _flagVessel(id, vessel, cableName, distKm, minutes) {
   if (typeof addLiveItem === 'function') {
     addLiveItem(msg, 'CABLE-WATCH', new Date().toISOString(), null, 'OSINT', 'al', true);
   }
-  // Update alert layer on map
   _refreshCableAlertLayer();
 }
 
@@ -154,33 +149,49 @@ function _refreshCableAlertLayer() {
   src.setData({ type: 'FeatureCollection', features });
 }
 
-// ── Fetch cable GeoJSON from TeleGeography ────────────────────────────────────
+// ── Fetch cable GeoJSON ────────────────────────────────────────────────────────
 async function fetchCableGeo() {
-  try {
-    // Try direct first (CORS-permissive on GitHub raw), then proxy
-    let r;
-    try {
-      r = await fetch(CABLE_DATA_URL, { signal: AbortSignal.timeout(15000) });
-    } catch {
-      r = await fetch(PROXY(CABLE_DATA_URL), { signal: AbortSignal.timeout(20000) });
-    }
-    if (!r.ok) throw new Error('Cable GeoJSON ' + r.status);
-    const geo = await r.json();
-    _cableGeo = geo;
-    _cableSegments = _buildSegmentIndex(geo);
-    _cablesLoaded = true;
-    console.log(`[WWO] Cables: loaded ${geo.features?.length || 0} cables, ${_cableSegments.length} segments`);
+  // Attempt 1: direct (works if GitHub raw ever relaxes CORS, or from localhost)
+  // Attempt 2: via Cloudflare Worker proxy
+  // Attempt 3: allorigins.win as a last resort
+  const attempts = [
+    () => fetch(CABLE_DATA_URL, { signal: AbortSignal.timeout(15000) }),
+    () => fetch(`${PROXY_BASE}/api/proxy?url=${encodeURIComponent(CABLE_DATA_URL)}`, { signal: AbortSignal.timeout(20000) }),
+    () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(CABLE_DATA_URL)}`, { signal: AbortSignal.timeout(20000) }),
+  ];
 
-    // Update map layer if already initialised
-    if (_cableLayersAdded) {
-      const src = map.getSource('cables');
-      if (src) src.setData(geo);
+  let geo = null;
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const r = await attempts[i]();
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const text = await r.text();
+      geo = JSON.parse(text);
+      if (!geo || !Array.isArray(geo.features) || geo.features.length === 0) throw new Error('Empty or invalid GeoJSON');
+      console.log(`[WWO] Cables: loaded ${geo.features.length} cables via attempt ${i + 1}`);
+      break;
+    } catch(e) {
+      console.warn(`[WWO] Cable fetch attempt ${i + 1} failed:`, e.message);
     }
-    return geo;
-  } catch(e) {
-    console.warn('[WWO] Cable fetch failed:', e.message);
+  }
+
+  if (!geo) {
+    console.error('[WWO] Cables: all fetch attempts failed — layer will be empty');
     return null;
   }
+
+  _cableGeo = geo;
+  _cableSegments = _buildSegmentIndex(geo);
+  _cablesLoaded = true;
+
+  if (_cableLayersAdded) {
+    const src = map.getSource('cables');
+    if (src) {
+      src.setData(geo);
+      console.log(`[WWO] Cables: map source updated with ${geo.features.length} features, ${_cableSegments.length} segments`);
+    }
+  }
+  return geo;
 }
 
 // ── Init map layers ────────────────────────────────────────────────────────────
@@ -244,7 +255,7 @@ function initCables(map) {
   // Fetch cable routes
   fetchCableGeo();
 
-  // Start loiter check loop — runs against whatever AIS data is in _flightFeatures
+  // Start loiter check loop
   setInterval(_runLoiterCheck, CABLE_ALERT_CONFIG.checkInterval);
 
   console.log('[WWO] Cables: layer initialised');
