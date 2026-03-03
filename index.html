@@ -154,7 +154,6 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
   <div class="lt on" data-l="cables" onclick="togL(this)"><div class="ind"></div>UNDERSEA CABLES</div>
   <div class="lt on" data-l="radiation" onclick="togL(this)"><div class="ind"></div>RADIATION</div>
-  <div class="lt off" data-l="wind" onclick="togWindParticles(this)"><div class="ind"></div>WIND FLOW</div>
   <div class="lt on" data-l="terror-events" onclick="togL(this)"><div class="ind"></div>EVENTS<span class="cnt" id="ktev">0</span></div>
   <div class="dvd"></div>
    <div class="panel-title">ACTIVE TRACKERS</div>
@@ -186,6 +185,7 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="wx-group">
     <div class="wx-btn" data-wx="temp"     onclick="setWeatherLayer(activeWeatherLayer==='temp'?null:'temp')">TEMP</div>
     <div class="wx-btn" data-wx="wind"     onclick="setWeatherLayer(activeWeatherLayer==='wind'?null:'wind')">WIND</div>
+    <div class="wx-btn" data-wx="wind-vec" onclick="setWindParticlesVisible(activeWeatherLayer!=='wind-vec');activeWeatherLayer=activeWeatherLayer==='wind-vec'?null:'wind-vec';this.classList.toggle('on')">WIND VECTORS</div>
     <div class="wx-btn" data-wx="precip"   onclick="setWeatherLayer(activeWeatherLayer==='precip'?null:'precip')">PRECIP</div>
     <div class="wx-btn" data-wx="clouds"   onclick="setWeatherLayer(activeWeatherLayer==='clouds'?null:'clouds')">CLOUDS</div>
     <div class="wx-btn" data-wx="pressure" onclick="setWeatherLayer(activeWeatherLayer==='pressure'?null:'pressure')">PRESSURE</div>
