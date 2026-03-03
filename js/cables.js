@@ -1,8 +1,5 @@
 // ====== SUBMARINE CABLE LAYER + AIS PROXIMITY ALERT ======
 // Cable routes: TeleGeography GeoJSON — served locally as data/cable-geo.json
-// Download from:
-//   https://raw.githubusercontent.com/telegeography/www.submarinecablemap.com/master/web/public/api/v3/cable/cable-geo.json
-// Save to: data/cable-geo.json alongside your other data files.
 
 // Loiter detection config — tunable
 const CABLE_ALERT_CONFIG = {
