@@ -183,6 +183,7 @@ function initWeather(map) {
   // ── Disaster pin GeoJSON sources ─────────────────────────────────────────
   map.addSource('fires',     { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('storms',    { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addSource('storm-cones', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('volcanoes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('tsunamis',  { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addSource('floods',    { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -217,6 +218,14 @@ function initWeather(map) {
     'text-halo-color': 'rgba(0,0,0,0.9)',
     'text-halo-width': 1.5
   }});
+
+  // STORMS — NERV-style uncertainty cone (filled polygon, ATCF per-storm GeoJSON)
+  map.addLayer({ id: 'storm-cone-fill', type: 'fill', source: 'storm-cones',
+    paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.10 }
+  });
+  map.addLayer({ id: 'storm-cone-line', type: 'line', source: 'storm-cones',
+    paint: { 'line-color': ['get', 'color'], 'line-width': 1.2, 'line-opacity': 0.5, 'line-dasharray': [3, 2] }
+  });
 
   // STORMS — track line + glow + icon + label
   map.addLayer({ id: 'storm-track', type: 'line', source: 'storms',
@@ -276,7 +285,7 @@ function initWeather(map) {
 
   // Add to global layer map so togL() works
   lMap.fires    = ['fire-glow', 'fire-dot'];
-  lMap.storms   = ['storm-glow', 'storm-dot', 'storm-track'];
+  lMap.storms   = ['storm-cone-fill','storm-cone-line','storm-glow', 'storm-dot', 'storm-track'];
   lMap.volcanoes= ['volc-glow', 'volc-dot'];
   lMap.tsunamis = ['tsunami-ring', 'tsunami-dot'];
   lMap.floods   = ['flood-glow', 'flood-dot'];
@@ -442,7 +451,6 @@ function parseFIRMScsv(csv) {
 // ── NOAA NHC — active tropical storms ────────────────────────────────────────
 async function fetchStorms() {
   try {
-    // NHC publishes GeoJSON for active storms
     const url = 'https://www.nhc.noaa.gov/CurrentStorms.json';
     const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })() });
     if (!r.ok) throw new Error('NHC ' + r.status);
@@ -452,15 +460,92 @@ async function fetchStorms() {
     if (src) src.setData({ type: 'FeatureCollection', features });
     const el = document.getElementById('storm-cnt');
     if (el) el.textContent = features.filter(f => f.properties.type === 'center').length;
-    console.log(`[WWO] NHC: ${features.filter(f=>f.properties.type==='center').length} active storms`);
+    console.log();
+    // Fetch ATCF cone polygons per active storm
+    if (d.activeStorms) _fetchStormCones(d.activeStorms);
   } catch(e) {
-    // Fallback: try ATCF best track GeoJSON
-    try {
-      const url2 = 'https://www.nhc.noaa.gov/gis/Allstorms.kmz';
-      // KMZ is binary — skip, use RSS instead
-      await fetchStormsRSS();
-    } catch(e2) { console.warn('[WWO] NHC error:', e.message); }
+    try { await fetchStormsRSS(); } catch(e2) { console.warn('[WWO] NHC error:', e.message); }
   }
+}
+
+// ── Fetch ATCF cone-of-uncertainty polygons per storm ─────────────────────────
+// NHC publishes per-storm GIS packages at:
+//   https://www.nhc.noaa.gov/gis/forecast/archive/{id}_5day_cone_no_line_and_wind.kmz (binary)
+//   https://www.nhc.noaa.gov/gis/forecast/archive/{id}_pgn.dat (text cone)
+// The most reliable public format is the 5-day track GeoJSON via undocumented endpoint:
+//   https://www.nhc.noaa.gov/CurrentStorms.json → storm.forecastTrackGeoJSON
+// Fallback: construct cone from forecastTrack points + wind radii
+async function _fetchStormCones(storms) {
+  const coneFeatures = [];
+  const catColors = ['#00aaff','#00ff88','#ffcc00','#ff8800','#ff4400','#ff0000'];
+  for (const storm of storms) {
+    const id = (storm.id || '').toLowerCase();
+    if (!id) continue;
+    const cat = storm.classification === 'TD' ? 0 : storm.classification === 'TS' ? 1 : parseInt(storm.intensity) || 0;
+    const color = catColors[Math.min(cat, 5)];
+    // Try NHC GeoJSON cone endpoint (available for Atlantic + Pacific storms)
+    const coneUrl = ;
+    try {
+      const r = await fetch(PROXY(coneUrl), { signal: AbortSignal.timeout(8000) });
+      if (r.ok) {
+        const text = await r.text();
+        const coords = _parsePGN(text);
+        if (coords.length >= 3) {
+          coneFeatures.push({ type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [coords] },
+            properties: { name: storm.name || id, color, cat, storm: id }
+          });
+          continue;
+        }
+      }
+    } catch(_) {}
+    // Fallback: build approximate cone from forecastTrack + expanding radius
+    if (storm.forecastTrack?.coordinates?.length >= 2) {
+      const cone = _buildApproxCone(storm.forecastTrack.coordinates, storm.intensity || 0);
+      if (cone) coneFeatures.push({ type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [cone] },
+        properties: { name: storm.name || id, color, cat, storm: id }
+      });
+    }
+  }
+  const coneSrc = map.getSource('storm-cones');
+  if (coneSrc) coneSrc.setData({ type: 'FeatureCollection', features: coneFeatures });
+  console.log();
+}
+
+// Parse NHC .pgn (polygon) dat file — space-separated lon lat pairs
+function _parsePGN(text) {
+  return text.trim().split(/
+/).map(line => {
+    const parts = line.trim().split(/\s+/);
+    const lon = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+    return (!isNaN(lon) && !isNaN(lat)) ? [lon, lat] : null;
+  }).filter(Boolean);
+}
+
+// Build approximate cone polygon from forecast track + expanding uncertainty radius
+function _buildApproxCone(trackCoords, intensity) {
+  if (trackCoords.length < 2) return null;
+  const side1 = [], side2 = [];
+  // Cone expands from ~30nm at T+0 to ~200nm at T+120h (NHC 2/3 rule)
+  const radii = [55, 75, 100, 130, 165, 200]; // km at each 24h step approx
+  trackCoords.forEach((coord, i) => {
+    const [lon, lat] = coord;
+    const r = (radii[Math.min(i, radii.length-1)] / 111); // deg approx
+    // Perpendicular: rotate track bearing ±90°
+    let bearing = 0;
+    if (i < trackCoords.length - 1) {
+      const dx = trackCoords[i+1][0] - lon, dy = trackCoords[i+1][1] - lat;
+      bearing = Math.atan2(dx, dy);
+    } else if (i > 0) {
+      const dx = lon - trackCoords[i-1][0], dy = lat - trackCoords[i-1][1];
+      bearing = Math.atan2(dx, dy);
+    }
+    side1.push([lon + r * Math.cos(bearing), lat + r * Math.sin(bearing)]);
+    side2.unshift([lon - r * Math.cos(bearing), lat - r * Math.sin(bearing)]);
+  });
+  const ring = [...side1, ...side2, side1[0]];
+  return ring;
 }
 
 async function fetchStormsRSS() {
