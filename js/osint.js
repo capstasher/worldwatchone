@@ -58,6 +58,21 @@ const FEED_QUERIES=[
   {q:'coup+military+takeover',         zone:'GEO',       ty:'al'},
   {q:'sanctions+embargo+SWIFT',        zone:'GEO',       ty:'in'},
   {q:'space+launch+satellite+missile', zone:'SPACE',     ty:'in'},
+  // Palestine (re-tagged from Gaza/West Bank zones)
+  {q:'Gaza+war+Hamas+IDF+airstrike',           zone:'Palestine', ty:'al'},
+  {q:'West+Bank+IDF+Jenin+settler+violence',   zone:'Palestine', ty:'al'},
+  {q:'Gaza+humanitarian+famine+aid',           zone:'Palestine', ty:'wa'},
+  {q:'Gaza+ceasefire+hostage+deal',            zone:'Palestine', ty:'wa'},
+  // Lebanon / Hezbollah (combined with Iran War tracker)
+  {q:'Lebanon+Hezbollah+IDF+ground+troops',    zone:'Iran War',  ty:'al'},
+  {q:'Hezbollah+rockets+Galilee+Haifa',        zone:'Iran War',  ty:'al'},
+  {q:'Beirut+Dahiyeh+airstrike+strike',        zone:'Iran War',  ty:'al'},
+  // Somalia / Al-Shabaab
+  {q:'Somalia+al-Shabaab+attack+Mogadishu',    zone:'Somalia',   ty:'al'},
+  {q:'Somalia+ATMIS+military+SNA+operation',   zone:'Somalia',   ty:'wa'},
+  // South China Sea
+  {q:'South+China+Sea+Philippines+PLA+Navy',   zone:'SCS',       ty:'al'},
+  {q:'Spratlys+Scarborough+Shoal+standoff',     zone:'SCS',       ty:'wa'},
 ];
 
 // ── LIVE TELEGRAM CHANNEL SOURCES ────────────────────────────────────────────
@@ -77,24 +92,63 @@ const RSSHUB_TG='https://rsshub.app/telegram/channel/';
 // @sentdefender → t.me/OSINTdefender (confirmed cross-post, same person)
 // @osinttechnical → t.me/osinttechnical (confirmed channel)
 // Additional high-value OSINT Telegram channels for broader coverage
+// TELEGRAM_OSINT_CHANNELS — zone-tagged for per-tracker filtering
+// zone:'OSINT' = shown on all trackers; specific zone = shown only on that tracker
 const TELEGRAM_OSINT_CHANNELS=[
-  // Channels confirmed to have public t.me/s/ preview enabled
-  // OSINT / INVESTIGATIONS
-  {channel:'OSINTdefender',     label:'OSINT Defender',       zone:'OSINT',   ty:'al', twitter:'sentdefender'},
-  {channel:'Intel_Alert',       label:'Intel Alert',          zone:'OSINT',   ty:'al', twitter:null},
-  {channel:'intelnews',         label:'Intel News',           zone:'OSINT',   ty:'in', twitter:null},
-  {channel:'osint_daily',       label:'OSINT Daily',          zone:'OSINT',   ty:'in', twitter:null},
-  {channel:'conflictnews',      label:'Conflict News',        zone:'OSINT',   ty:'al', twitter:null},
-  // GLOBAL MONITORING
-  {channel:'IntelSlava',        label:'Intel Slava',          zone:'OSINT',   ty:'al', twitter:null},
-  {channel:'MiddleEastSpectator', label:'ME Spectator',       zone:'MENA',    ty:'wa', twitter:null},
-  {channel:'globalcrisismedia', label:'Global Crisis',        zone:'OSINT',   ty:'al', twitter:null},
-  {channel:'IranIntl_En',       label:'Iran Intl',            zone:'MENA',    ty:'wa', twitter:'IranIntl_En'},
-  {channel:'africanosint',      label:'Africa OSINT',         zone:'Africa',  ty:'al', twitter:null},
-  // Pak-Afghan conflict channels
-  {channel:'PakistanMilitaryForum',  label:'Pakistan Military Forum',     zone:'Pak-Afghan'},
-  {channel:'AfghanistanLiveUpdate',  label:'Afghanistan Live Updates',    zone:'Pak-Afghan'},
-  {channel:'pak_afghan_conflict',    label:'Pak-Afghan Conflict Monitor', zone:'Pak-Afghan'},
+  // GLOBAL OSINT (shown on all trackers)
+  {channel:'OSINTdefender',       label:'OSINT Defender',           zone:'OSINT',     ty:'al', twitter:'sentdefender'},
+  {channel:'Intel_Alert',         label:'Intel Alert',              zone:'OSINT',     ty:'al'},
+  {channel:'conflictnews',        label:'Conflict News',            zone:'OSINT',     ty:'al'},
+  {channel:'IntelSlava',          label:'Intel Slava Z',            zone:'OSINT',     ty:'al'},
+  {channel:'globalcrisismedia',   label:'Global Crisis Media',      zone:'OSINT',     ty:'al'},
+  {channel:'intelnews',           label:'Intel News',               zone:'OSINT',     ty:'in'},
+  // IRAN / ISRAEL / LEBANON (combined tracker)
+  {channel:'IranIntl_En',         label:'Iran International',       zone:'Iran War',  ty:'al', twitter:'IranIntl_En'},
+  {channel:'MiddleEastSpectator', label:'Middle East Spectator',    zone:'Iran War',  ty:'wa'},
+  {channel:'IDF_English',         label:'IDF Spokesperson',         zone:'Iran War',  ty:'al'},
+  {channel:'AlMayadeenEnglish',   label:'Al Mayadeen English',      zone:'Iran War',  ty:'wa'},
+  {channel:'LebanonNewsroom',     label:'Lebanon Newsroom',         zone:'Iran War',  ty:'wa'},
+  {channel:'hezbollahpress',      label:'Hezbollah Press',          zone:'Iran War',  ty:'al'},
+  // PALESTINE / GAZA
+  {channel:'GazaWarroom',         label:'Gaza Warroom',             zone:'Palestine', ty:'al'},
+  {channel:'QudsNewsNetwork',     label:'Quds News Network',        zone:'Palestine', ty:'al'},
+  {channel:'PalestineChronicle',  label:'Palestine Chronicle',      zone:'Palestine', ty:'wa'},
+  {channel:'IDF_English',         label:'IDF Spokesperson',         zone:'Palestine', ty:'al'},
+  // UKRAINE / RUSSIA
+  {channel:'UkraineNow',          label:'Ukraine NOW',              zone:'Ukraine',   ty:'al'},
+  {channel:'DefMon3',             label:'Defense Monitor',          zone:'Ukraine',   ty:'al'},
+  {channel:'ua_war_monitor',      label:'UA War Monitor',           zone:'Ukraine',   ty:'al'},
+  {channel:'rybar_en',            label:'Rybar (EN)',               zone:'Ukraine',   ty:'wa'},
+  {channel:'DeepStateUA',         label:'DeepStateUA',              zone:'Ukraine',   ty:'al'},
+  // SUDAN / DARFUR
+  {channel:'SudanWarMonitor',     label:'Sudan War Monitor',        zone:'Sudan',     ty:'al'},
+  {channel:'africanosint',        label:'Africa OSINT',             zone:'Sudan',     ty:'al'},
+  {channel:'SudanUprising',       label:'Sudan Uprising',           zone:'Sudan',     ty:'wa'},
+  // DRC / CONGO
+  {channel:'CongoWarNews',        label:'Congo War News',           zone:'DRC',       ty:'al'},
+  {channel:'africanosint',        label:'Africa OSINT',             zone:'DRC',       ty:'al'},
+  // MYANMAR
+  {channel:'MyanmarNow_Eng',      label:'Myanmar Now (EN)',         zone:'Myanmar',   ty:'al'},
+  {channel:'DVB_English',         label:'DVB Multimedia Group',     zone:'Myanmar',   ty:'wa'},
+  {channel:'MyanmarWitnessBot',   label:'Myanmar Witness',          zone:'Myanmar',   ty:'al'},
+  // YEMEN / RED SEA
+  {channel:'YemenWarMonitor',     label:'Yemen War Monitor',        zone:'Yemen',     ty:'al'},
+  {channel:'HouthiMediaCenter',   label:'Houthi Media Centre',      zone:'Yemen',     ty:'al'},
+  {channel:'MaritimeSecurity',    label:'Maritime Security',        zone:'Yemen',     ty:'wa'},
+  // PAK-AFGHAN
+  {channel:'PakistanMilitaryForum',  label:'Pakistan Military Forum',    zone:'Pak-Afghan', ty:'al'},
+  {channel:'AfghanistanLiveUpdate',  label:'Afghanistan Live Updates',   zone:'Pak-Afghan', ty:'al'},
+  {channel:'pak_afghan_conflict',    label:'Pak-Afghan Conflict Monitor',zone:'Pak-Afghan', ty:'wa'},
+  {channel:'TTPTracker',             label:'TTP Activity Tracker',       zone:'Pak-Afghan', ty:'al'},
+  // SAHEL
+  {channel:'SahelWatch',          label:'Sahel Watch',              zone:'Sahel',     ty:'al'},
+  {channel:'WestAfricaMonitor',   label:'West Africa Monitor',      zone:'Sahel',     ty:'wa'},
+  // TAIWAN / SCS
+  {channel:'TaiwanStraitWatch',   label:'Taiwan Strait Watch',      zone:'Taiwan',    ty:'al'},
+  {channel:'IndoPacificNews',     label:'Indo-Pacific News',        zone:'Taiwan',    ty:'wa'},
+  // MEXICO / CARTELS
+  {channel:'MexicoSecurityNews',  label:'Mexico Security News',     zone:'Mexico',    ty:'al'},
+  {channel:'NarcoNews',           label:'Narco News',               zone:'Mexico',    ty:'wa'},
 ];
 
 // Master store: all real posts pulled from Telegram, used by both OSINT feed AND conflict trackers
@@ -122,6 +176,9 @@ const ZONE_KEYWORDS={
   'India-Pakistan':[/india.?pakistan/i,/kashmir/i,/loc\b/i,/sindoor/i,/pahalgam/i],
   'Pak-Afghan':[/\bttp\b/i,/tehrik.?i.?taliban/i,/pakistan.?afghan/i,/afghan.?pakistan/i,/durand/i,/waziristan/i,/khyber/i,/\/kpk\b/i,/balochistan/i,/\/bla\b/i,/bajaur/i,/mohmand/i,/kunar/i,/nangarhar/i,/kandahar.?pakistan/i,/cross.?border.?strike/i,/pakistan.?airstrike/i,/afghan.?border/i],
   'Mexico':[/mexico/i,/cjng/i,/jalisco/i,/cartel/i,/mencho/i,/guadalajara/i,/puerto.?vallarta/i,/michoacan/i,/tamaulipas/i,/narcobloqueo/i,/fentanyl/i,/sinaloa/i],
+  'Palestine':[/gaza/i,/hamas/i,/palesti/i,/rafah/i,/ceasefire/i,/hostage/i,/jabalia/i,/khan.?younis/i,/nuseirat/i,/west.?bank/i,/jenin/i,/tulkarm/i,/nablus/i,/settler/i],
+  'Somalia':[/somalia/i,/shabaab/i,/mogadishu/i,/atmis/i,/kismayo/i,/baidoa/i],
+  'SCS':[/south.china.sea/i,/spratly/i,/scarborough/i,/second.thomas/i,/ayungin/i],
 };
 
 // ── Shared utilities ─────────────────────────────────────────────────────────
