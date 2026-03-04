@@ -118,7 +118,6 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'DefMon3',             label:'Defense Monitor',          zone:'Ukraine',   ty:'al'},
   {channel:'ua_war_monitor',      label:'UA War Monitor',           zone:'Ukraine',   ty:'al'},
   {channel:'rybar_en',            label:'Rybar (EN)',               zone:'Ukraine',   ty:'wa'},
-  {channel:'DeepStateUA',         label:'DeepStateUA',              zone:'Ukraine',   ty:'al'},
   // SUDAN / DARFUR
   {channel:'SudanWarMonitor',     label:'Sudan War Monitor',        zone:'Sudan',     ty:'al'},
   {channel:'africanosint',        label:'Africa OSINT',             zone:'Sudan',     ty:'al'},
