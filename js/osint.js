@@ -101,10 +101,10 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'conflictnews',        label:'Conflict News',            zone:'OSINT',     ty:'al'},
   {channel:'globalcrisismedia',   label:'Global Crisis Media',      zone:'OSINT',     ty:'al'},
   {channel:'intelnews',           label:'Intel News',               zone:'OSINT',     ty:'in'},
-  {channel:'visegrad24',          label:'Visegrád 24',              zone:'OSINT',     ty:'in'},
+  {channel:'visegrad24official',  label:'Visegrád 24',              zone:'OSINT',     ty:'in'},
   // IRAN / ISRAEL / LEBANON (combined tracker)
   {channel:'IranIntl_En',         label:'Iran International',       zone:'Iran War',  ty:'al', twitter:'IranIntl_En'},
-  {channel:'MiddleEastSpectator', label:'Middle East Spectator',    zone:'Iran War',  ty:'wa'},
+  {channel:'middle_east_spectator', label:'Middle East Spectator',    zone:'Iran War',  ty:'wa'},
   {channel:'IDF_English',         label:'IDF Spokesperson',         zone:'Iran War',  ty:'al'},
   {channel:'AlMayadeenEnglish',   label:'Al Mayadeen English',      zone:'Iran War',  ty:'wa'},
   {channel:'LebanonNewsroom',     label:'Lebanon Newsroom',         zone:'Iran War',  ty:'wa'},
