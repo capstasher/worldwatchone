@@ -2,21 +2,21 @@
 // Backend: Cloudflare Workers + KV store (binding: WWO_EVENTS)
 // Worker periodically scrapes SITE Intelligence RSS, Reuters breaking, AP alerts
 // and geocodes events via Nominatim — writes to KV with 48h TTL.
-// Client polls /api/events every 5 minutes. Events persist between sessions.
+// Client polls /api/incidents every 5 minutes. Events persist between sessions.
 // Events expire naturally when KV TTL expires — no manual cleanup needed.
 //
 // KV key format: event:{timestamp_ms}_{lat}_{lon}
 // KV value: JSON { id, lat, lon, title, source, severity, ts, category }
+// NOTE: endpoint renamed from /api/events → /api/incidents to avoid ad blocker interception
 
-const TERROR_POLL_MS     = 5 * 60 * 1000;   // poll every 5min
-const TERROR_DISPLAY_TTL = 48 * 60 * 60 * 1000; // hide client-side after 48h
+const TERROR_POLL_MS     = 5 * 60 * 1000;
+const TERROR_DISPLAY_TTL = 48 * 60 * 60 * 1000;
 
-// Severity colours
 const TERROR_COLORS = {
-  critical: '#ff0000',   // mass casualty, WMD
-  high:     '#ff6600',   // bombing, armed attack, significant casualties
-  medium:   '#ffcc00',   // shooting, knife attack, threat
-  low:      '#00ccff',   // arrest, foiled plot, incident
+  critical: '#ff0000',
+  high:     '#ff6600',
+  medium:   '#ffcc00',
+  low:      '#00ccff',
 };
 
 let _terrorLayerAdded = false;
@@ -26,12 +26,11 @@ let _terrorPollTimer  = null;
 // ── Fetch events from Worker KV endpoint ─────────────────────────────────────
 async function _fetchTerrorEvents() {
   try {
-    const r = await fetch(`${PROXY_BASE}/api/events`, { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(`${PROXY_BASE}/api/incidents`, { signal: AbortSignal.timeout(10000) });
     if (!r.ok) throw new Error('Events Worker ' + r.status);
     const data = await r.json();
     const events = Array.isArray(data) ? data : (data.events || []);
 
-    // Client-side TTL filter (belt + suspenders over KV TTL)
     const cutoff = Date.now() - TERROR_DISPLAY_TTL;
     _terrorFeatures = events
       .filter(e => e.lat != null && e.lon != null && (e.ts || 0) > cutoff)
@@ -55,7 +54,6 @@ async function _fetchTerrorEvents() {
       if (src) src.setData({ type: 'FeatureCollection', features: _terrorFeatures });
     }
 
-    // Surface critical events to OSINT feed
     const recent = _terrorFeatures.filter(f => f.properties.ts > Date.now() - TERROR_POLL_MS * 2);
     recent.forEach(f => {
       const p = f.properties;
@@ -78,15 +76,12 @@ async function _fetchTerrorEvents() {
 function initTerrorEvents(map) {
   map.addSource('terror-events', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-  // Outer glow (severity-based radius)
+  // Outer glow
   map.addLayer({ id: 'terror-glow', type: 'circle', source: 'terror-events',
     paint: {
       'circle-radius': [
         'match', ['get', 'severity'],
-        'critical', 32,
-        'high', 22,
-        'medium', 16,
-        12
+        'critical', 32, 'high', 22, 'medium', 16, 12
       ],
       'circle-color': ['get', 'color'],
       'circle-opacity': 0.15,
@@ -99,10 +94,7 @@ function initTerrorEvents(map) {
     paint: {
       'circle-radius': [
         'match', ['get', 'severity'],
-        'critical', 8,
-        'high', 6,
-        'medium', 5,
-        4
+        'critical', 8, 'high', 6, 'medium', 5, 4
       ],
       'circle-color': ['get', 'color'],
       'circle-opacity': 0.95,
@@ -111,10 +103,10 @@ function initTerrorEvents(map) {
     }
   });
 
-  // Age label (hours ago)
+  // Age label — fixed: use 'concat' not '+' for string concatenation
   map.addLayer({ id: 'terror-label', type: 'symbol', source: 'terror-events',
     layout: {
-      'text-field': ['+', ['get', 'ageHours'], 'h'],
+      'text-field': ['concat', ['get', 'ageHours'], 'h'],
       'text-size': 8,
       'text-offset': [0, 1.2],
       'text-font': ['DIN Pro Regular', 'Arial Unicode MS Regular'],
@@ -131,7 +123,6 @@ function initTerrorEvents(map) {
   layerVis['terror-events'] = true;
   _terrorLayerAdded = true;
 
-  // Click popup
   map.on('click', 'terror-dot', e => {
     const p = e.features[0]?.properties || {};
     const sevIcon = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵' }[p.severity] || '⚫';
@@ -145,7 +136,6 @@ function initTerrorEvents(map) {
   map.on('mouseenter', 'terror-dot', () => map.getCanvas().style.cursor = 'pointer');
   map.on('mouseleave', 'terror-dot', () => map.getCanvas().style.cursor = '');
 
-  // Start polling
   _fetchTerrorEvents();
   _terrorPollTimer = setInterval(_fetchTerrorEvents, TERROR_POLL_MS);
 
