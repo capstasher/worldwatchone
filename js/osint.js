@@ -101,7 +101,9 @@ function renderFeedPane() {
   renderPending = true;
   requestAnimationFrame(() => {
     renderPending = false;
-    if (!ofE) return;
+    // Lazy lookup — safe regardless of where ofE is declared in the main file
+    const pane = document.getElementById('of');
+    if (!pane) return;
 
     // Purge items that have aged out since last render
     const now = Date.now();
@@ -115,10 +117,10 @@ function renderFeedPane() {
     fresh.sort((a, b) => b.pubDate - a.pubDate);
 
     // Rebuild DOM
-    ofE.innerHTML = '';
+    pane.innerHTML = '';
     fresh.forEach(item => {
       const el = buildFeedEl(item);
-      if (el) ofE.appendChild(el);
+      if (el) pane.appendChild(el);
     });
   });
 }
