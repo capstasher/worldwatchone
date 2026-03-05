@@ -76,24 +76,9 @@ const FEED_QUERIES=[
 ];
 
 // ── LIVE TELEGRAM CHANNEL SOURCES ────────────────────────────────────────────
-// Nitter is dead (Twitter killed all public instances 2024).
-// These OSINT accounts cross-post to public Telegram channels.
-// We pull REAL posts via tg.i-c-a.su (free Telegram→JSON API, no auth, CORS-ok)
-// and RSSHub as fallback. Zero fake data.
-
-// tg.i-c-a.su JSON API: https://tg.i-c-a.su/json/{channel}?limit=N
-// Rate limit: 15 req/min — we stay well under with staggered fetches
 const TG_JSON_API='https://tg.i-c-a.su/json/';
-
-// RSSHub fallback: https://rsshub.app/telegram/channel/{channel}
 const RSSHUB_TG='https://rsshub.app/telegram/channel/';
 
-// Telegram channels that mirror the requested Twitter OSINT accounts
-// @sentdefender → t.me/OSINTdefender (confirmed cross-post, same person)
-// @osinttechnical → t.me/osinttechnical (confirmed channel)
-// Additional high-value OSINT Telegram channels for broader coverage
-// TELEGRAM_OSINT_CHANNELS — zone-tagged for per-tracker filtering
-// zone:'OSINT' = shown on all trackers; specific zone = shown only on that tracker
 const TELEGRAM_OSINT_CHANNELS=[
   // GLOBAL OSINT (shown on all trackers)
   {channel:'OSINTdefender',       label:'OSINT Defender',           zone:'OSINT',     ty:'al', twitter:'sentdefender'},
@@ -102,9 +87,9 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'globalcrisismedia',   label:'Global Crisis Media',      zone:'OSINT',     ty:'al'},
   {channel:'intelnews',           label:'Intel News',               zone:'OSINT',     ty:'in'},
   {channel:'visegrad24official',  label:'Visegrád 24',              zone:'OSINT',     ty:'in'},
-  // IRAN / ISRAEL / LEBANON (combined tracker)
+  // IRAN / ISRAEL / LEBANON
   {channel:'IranIntl_En',         label:'Iran International',       zone:'Iran War',  ty:'al', twitter:'IranIntl_En'},
-  {channel:'middle_east_spectator', label:'Middle East Spectator',    zone:'Iran War',  ty:'wa'},
+  {channel:'middle_east_spectator', label:'Middle East Spectator',  zone:'Iran War',  ty:'wa'},
   {channel:'IDF_English',         label:'IDF Spokesperson',         zone:'Iran War',  ty:'al'},
   {channel:'AlMayadeenEnglish',   label:'Al Mayadeen English',      zone:'Iran War',  ty:'wa'},
   {channel:'LebanonNewsroom',     label:'Lebanon Newsroom',         zone:'Iran War',  ty:'wa'},
@@ -149,11 +134,11 @@ const TELEGRAM_OSINT_CHANNELS=[
   {channel:'NarcoNews',           label:'Narco News',               zone:'Mexico',    ty:'wa'},
 ];
 
-// Master store: all real posts pulled from Telegram, used by both OSINT feed AND conflict trackers
+// Master store: all real posts pulled from Telegram
 const liveTelegramPosts=[];
 const MAX_TG_POSTS=2000;
 
-// Zone-keyword mapping: routes real posts into the correct conflict tracker
+// Zone-keyword mapping
 const ZONE_KEYWORDS={
   'Ukraine':[/ukrain/i,/donbas/i,/bakhmut/i,/avdiiv/i,/chasiv/i,/kherson/i,/zapori/i,/kharkiv/i,/drone/i,/frontline/i,/pokrovsk/i,/kupyansk/i,/toretsk/i,/donetsk/i,/luhansk/i,/mariupol/i,/zelensky/i,/dnipro/i,/odesa/i,/sumy/i],
   'Kursk':[/kursk/i,/sudzha/i,/russian.?border/i,/belgorod/i,/bryansk/i],
@@ -179,13 +164,180 @@ const ZONE_KEYWORDS={
   'SCS':[/south.china.sea/i,/spratly/i,/scarborough/i,/second.thomas/i,/ayungin/i],
 };
 
+// ── Age cutoff: 48 hours ─────────────────────────────────────────────────────
+const MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * parseSourceDate(raw)
+ * Converts any timestamp format to a Date, enforcing the 48h cutoff.
+ * - Unix integer seconds (Telegram tg.i-c-a.su)
+ * - ISO 8601 string (RSSHub, most RSS feeds)
+ * - RFC 2822 string (older RSS feeds)
+ * Returns a Date, or null if: unparseable, older than 48h, or >1h in the future.
+ */
+function parseSourceDate(raw){
+  if(raw==null)return null;
+  let ms;
+  if(typeof raw==='number'){
+    // Telegram gives Unix seconds; anything <1e12 is seconds, not ms
+    ms=raw<1e12?raw*1000:raw;
+  }else if(typeof raw==='string'){
+    const t=raw.trim();
+    if(!t)return null;
+    ms=Date.parse(t);
+    if(isNaN(ms))return null;
+  }else if(raw instanceof Date){
+    ms=raw.getTime();
+  }else{
+    return null;
+  }
+  const now=Date.now();
+  if(now-ms>MAX_AGE_MS)return null;          // too old — drop
+  if(ms-now>60*60*1000)return null;          // >1h in future — bad data
+  return new Date(ms);
+}
+
+// ── In-memory feed store & deduplication ────────────────────────────────────
+// Items are stored here and the DOM is rebuilt sorted newest-first on every insert.
+const feedItems=[];
+const MAX_FEED_ITEMS=500;
+const seenFeedKeys=new Set();
+
+/**
+ * addLiveItem()
+ * Central entry point for ALL feed items (Telegram, RSS, Google News).
+ * Uses parseSourceDate() to get the real publication time; drops stale items.
+ * After inserting, re-renders the #of pane sorted newest → oldest.
+ */
+function addLiveItem(title,source,rawDate,link,zone,ty,isTelegram,media=[]){
+  if(!title||title.length<10)return;
+
+  const pubDate=parseSourceDate(rawDate);
+  if(!pubDate)return; // too old, future, or unparseable
+
+  // Deduplicate by source + normalised title prefix
+  const dedupeKey=source+'|'+title.slice(0,80).toLowerCase().replace(/\s+/g,' ');
+  if(seenFeedKeys.has(dedupeKey))return;
+  seenFeedKeys.add(dedupeKey);
+  if(seenFeedKeys.size>3000){
+    const it=seenFeedKeys.values();
+    for(let i=0;i<500;i++)seenFeedKeys.delete(it.next().value);
+  }
+
+  feedItems.push({title,source,pubDate,link,zone,ty,isTelegram,media});
+
+  // If over capacity, sort and trim oldest
+  if(feedItems.length>MAX_FEED_ITEMS){
+    feedItems.sort((a,b)=>b.pubDate-a.pubDate);
+    feedItems.length=MAX_FEED_ITEMS;
+  }
+
+  renderFeedPane();
+}
+
+/**
+ * renderFeedPane()
+ * Rebuilds the #of DOM element sorted newest-first.
+ * Throttled via requestAnimationFrame — rapid bursts don't thrash the DOM.
+ */
+let renderPending=false;
+function renderFeedPane(){
+  if(renderPending)return;
+  renderPending=true;
+  requestAnimationFrame(()=>{
+    renderPending=false;
+    const pane=document.getElementById('of');
+    if(!pane)return;
+
+    // Purge anything that has aged out since last render
+    const now=Date.now();
+    for(let i=feedItems.length-1;i>=0;i--){
+      if(now-feedItems[i].pubDate.getTime()>MAX_AGE_MS)feedItems.splice(i,1);
+    }
+
+    // Sort newest first
+    feedItems.sort((a,b)=>b.pubDate-a.pubDate);
+
+    // Rebuild DOM
+    pane.innerHTML='';
+    feedItems.forEach(item=>{
+      const el=buildFeedEl(item);
+      if(el)pane.appendChild(el);
+    });
+  });
+}
+
+/**
+ * buildFeedEl(item)
+ * Produces a single feed row element. Mirrors the structure your existing
+ * CSS expects — adjust class names here if needed.
+ */
+function buildFeedEl(item){
+  const div=document.createElement('div');
+  div.className='of-item ty-'+(item.ty||'in')+(item.isTelegram?' tg':'');
+
+  const ageMs=Date.now()-item.pubDate.getTime();
+  const ageLabel=
+    ageMs<60000      ?'just now':
+    ageMs<3600000    ?Math.floor(ageMs/60000)+'m ago':
+    ageMs<86400000   ?Math.floor(ageMs/3600000)+'h ago':
+                      Math.floor(ageMs/86400000)+'d ago';
+
+  const utcStr=item.pubDate.toUTCString();
+  const icon=item.ty==='al'?'🔴':item.ty==='wa'?'🟡':'ℹ️';
+
+  div.innerHTML=
+    `<span class="of-ty">${icon}</span>`+
+    `<span class="of-src">[${esc(item.source)}]</span>`+
+    `<span class="of-age" title="${esc(utcStr)}">${ageLabel}</span>`+
+    `<span class="of-zone">${esc(item.zone)}</span>`+
+    `<a class="of-title" href="${esc(item.link)}" target="_blank" rel="noopener">${esc(item.title)}</a>`;
+
+  if(item.media&&item.media.length>0){
+    const wrap=document.createElement('div');
+    wrap.className='of-media';
+    item.media.forEach(m=>{
+      if(!m.thumb&&!m.url)return;
+      const img=document.createElement('img');
+      img.src=m.thumb||m.url;
+      img.className='of-thumb';
+      img.loading='lazy';
+      img.onerror=()=>img.remove();
+      wrap.appendChild(img);
+    });
+    if(wrap.children.length>0)div.appendChild(wrap);
+  }
+  return div;
+}
+
+function esc(s){
+  if(!s)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Periodic stale-item purge ────────────────────────────────────────────────
+// Evicts items from both stores that have aged past 48h, then re-renders.
+setInterval(()=>{
+  const now=Date.now();
+  const before=feedItems.length;
+  for(let i=feedItems.length-1;i>=0;i--){
+    if(now-feedItems[i].pubDate.getTime()>MAX_AGE_MS)feedItems.splice(i,1);
+  }
+  for(let i=liveTelegramPosts.length-1;i>=0;i--){
+    const ms=new Date(liveTelegramPosts[i].pubDate).getTime();
+    if(now-ms>MAX_AGE_MS)liveTelegramPosts.splice(i,1);
+  }
+  if(feedItems.length<before){
+    console.log(`[WWO] Purged ${before-feedItems.length} stale feed items`);
+    renderFeedPane();
+  }
+},5*60*1000);
+
 // ── Shared utilities ─────────────────────────────────────────────────────────
+// ofE kept for backward compat (referenced in refreshLiveFeed console.log)
 const ofE=document.getElementById('of');
 
-// Fetch news: try allorigins to get raw RSS XML, parse in-browser
-
-// ── DIRECT RSS FEEDS — broad monitoring sources ───────────────────────────────
-// These bypass Google News and pull directly from authoritative sources
+// ── DIRECT RSS FEEDS ─────────────────────────────────────────────────────────
 const RSS_FEEDS=[
   {url:'https://www.gdacs.org/xml/rss.xml',          label:'GDACS',        zone:'GEO',   ty:'al'},
   {url:'https://feeds.reuters.com/reuters/worldNews', label:'Reuters World',zone:'GEO',   ty:'in'},
@@ -196,37 +348,36 @@ const RSS_FEEDS=[
   {url:'https://netblocks.org/feed',                   label:'NetBlocks',   zone:'CYBER', ty:'al'},
 ];
 
-// ── Feed fetch rate limiting ──────────────────────────────────────────────────
-// Free public CORS proxies for Google News RSS — tried in order, no Worker quota used.
-// corsproxy.io and allorigins are independent services; if one is down the other covers.
-const FREE_PROXIES = [
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+// ── CORS proxies ─────────────────────────────────────────────────────────────
+const FREE_PROXIES=[
+  url=>`https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ];
 
-// Query rotation: cycle through all queries in batches so each 5-min refresh
-// only fires a subset, but every query gets a turn over ~15 minutes.
-let _queryBatchIdx = 0;
-const QUERY_BATCH_SIZE = 16; // ~16 queries per cycle × 3 cycles = full rotation in 15min
+// ── Query batch rotation ──────────────────────────────────────────────────────
+let _queryBatchIdx=0;
+const QUERY_BATCH_SIZE=16;
 
+// ── fetchNewsQuery ────────────────────────────────────────────────────────────
+// Passes item.pubDate (the RSS <pubDate> string) directly to addLiveItem.
+// parseSourceDate() handles validation and the 48h cutoff — no manual cutoff here.
 async function fetchNewsQuery(qObj){
   const rssUrl=GN_BASE+qObj.q+GN_PARAMS;
-  // Try all free proxies first — only fall back to Worker if all fail
   const proxyUrls=[
     ...FREE_PROXIES.map(p=>p(rssUrl)),
-    PROXY(rssUrl), // Worker — last resort only
+    PROXY(rssUrl),
   ];
   for(const url of proxyUrls){
     try{
-      const r=await fetch(url,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+      const r=await fetch(url,{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
       if(items.length>0){
-        items.slice(0,5).reverse().forEach(item=>{
-          const src=item.source||'Google News';
-          addLiveItem(item.title,src,item.pubDate,item.link,qObj.zone,qObj.ty,false);
+        items.slice(0,5).forEach(item=>{
+          // Use item.pubDate — the actual RSS publication date string
+          addLiveItem(item.title,item.source||'Google News',item.pubDate,item.link,qObj.zone,qObj.ty,false);
         });
         return;
       }
@@ -234,23 +385,22 @@ async function fetchNewsQuery(qObj){
   }
 }
 
-
-// ── Direct RSS feed fetcher ──────────────────────────────────────────────────
+// ── fetchRSSFeed ──────────────────────────────────────────────────────────────
 async function fetchRSSFeed(feed){
-  // Try free CORS proxies first, Worker as last resort
   const proxyUrls=[
     ...FREE_PROXIES.map(p=>p(feed.url)),
     PROXY(feed.url),
   ];
   for(const url of proxyUrls){
     try{
-      const r=await fetch(url,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+      const r=await fetch(url,{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
       if(items.length>0){
-        items.slice(0,6).reverse().forEach(item=>{
+        items.slice(0,6).forEach(item=>{
           if(!item.title||item.title.length<10)return;
+          // Use item.pubDate — the actual RSS publication date string
           addLiveItem(item.title,feed.label,item.pubDate,item.link,feed.zone,feed.ty,false);
         });
         return;
@@ -259,28 +409,14 @@ async function fetchRSSFeed(feed){
   }
 }
 
-// ── Telegram channel fetcher — MULTI-METHOD with CORS proxy fallbacks ────────
-// Problem: file:// origin gets blocked by CORS on most APIs.
-// Solution: try direct first, then CORS proxies, then Telegram web preview scraping.
-//
-// Method 1: tg.i-c-a.su JSON API (works from https:// sites)
-// Method 2: CORS-proxied tg.i-c-a.su (works from file:// via corsproxy.io / allorigins)
-// Method 3: Telegram web preview HTML scraping via CORS proxy (t.me/s/channel)
-// Method 4: RSSHub via rss2json (existing pipeline)
-
-
-// Parse Telegram web preview HTML (t.me/s/channel) into messages
+// ── Telegram HTML preview parser ──────────────────────────────────────────────
 function parseTelegramHTML(html,ch){
   const msgs=[];
   const postRegex=/<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
   const idRegex=/data-post="[^/]+\/(\d+)"/g;
   const dateRegex=/<time[^>]*datetime="([^"]+)"/g;
-  // Photo: tgme_widget_message_photo_wrap with style containing background-image url
   const photoRegex=/tgme_widget_message_photo_wrap[^>]*style="[^"]*background-image:url\('([^']+)'\)/gi;
-  // Video: tgme_widget_message_video src
   const videoRegex=/<video[^>]*src="([^"]+)"/gi;
-  // Also grab og-style preview images
-  const previewRegex=/tgme_widget_message_link_preview[^>]*>[\s\S]*?<i[^>]*style="[^"]*background-image:url\('([^']+)'\)/gi;
 
   const ids=[];let idm;
   while((idm=idRegex.exec(html))!==null)ids.push(idm[1]);
@@ -289,7 +425,6 @@ function parseTelegramHTML(html,ch){
   const texts=[];let tm;
   while((tm=postRegex.exec(html))!==null)texts.push(stripHtml(tm[1]));
 
-  // Build per-message media by splitting HTML into message blocks first
   const blockRegex=/<div[^>]*class="[^"]*tgme_widget_message_wrap[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi;
   const blocks=[];let bm;
   while((bm=blockRegex.exec(html))!==null)blocks.push(bm[1]);
@@ -298,18 +433,17 @@ function parseTelegramHTML(html,ch){
     if(!texts[i]||texts[i].length<15)continue;
     const media=[];
     const block=blocks[i]||'';
-    // Photos in this block
     const pr=new RegExp(photoRegex.source,'gi');
     let pm;while((pm=pr.exec(block))!==null)media.push({type:'photo',url:pm[1],thumb:pm[1]});
-    // Videos in this block
     const vr=new RegExp(videoRegex.source,'gi');
     let vm;while((vm=vr.exec(block))!==null)media.push({type:'video',url:vm[1],thumb:null});
-    msgs.push({text:texts[i],id:ids[i]||'',date:dates[i]||new Date().toISOString(),media});
+    // dates[i] is the ISO string from <time datetime="..."> — use it raw
+    msgs.push({text:texts[i],id:ids[i]||'',date:dates[i]||null,media});
   }
   return msgs;
 }
 
-// Extract images from RSS item description HTML (RSSHub includes <img> tags)
+// ── Extract images from RSSHub item description HTML ─────────────────────────
 function extractRSSMedia(html){
   const media=[];
   const imgRe=/<img[^>]+src="([^"]+)"/gi;
@@ -322,12 +456,15 @@ function extractRSSMedia(html){
   return media;
 }
 
+// ── fetchTelegramChannel ──────────────────────────────────────────────────────
+// KEY CHANGE: msg.date (Unix seconds integer) is passed raw to addLiveItem.
+// parseSourceDate() handles seconds→ms conversion AND the 48h cutoff.
+// All manual cutoff checks and new Date() fallbacks removed.
 async function fetchTelegramChannel(ch){
-  const cutoff=Date.now()-24*60*60*1000;
 
-  // ── METHOD 1: tg.i-c-a.su JSON API direct (CORS-ok on https://, no Worker needed) ──
+  // ── METHOD 1: tg.i-c-a.su direct ──
   try{
-    const r=await fetch(TG_JSON_API+ch.channel+'?limit=20',{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+    const r=await fetch(TG_JSON_API+ch.channel+'?limit=20',{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
     if(!r.ok)throw new Error('tg.i-c-a.su '+r.status);
     const d=await r.json();
     const msgs=Array.isArray(d)?d:(d.messages||[]);
@@ -336,25 +473,26 @@ async function fetchTelegramChannel(ch){
       msgs.slice(-15).forEach(msg=>{
         const text=typeof msg==='string'?msg:stripHtml(msg.text||msg.message||msg.caption||'');
         if(!text||text.length<15)return;
-        const pubDate=msg.date?new Date(msg.date*1000):new Date();
-        if(pubDate.getTime()<cutoff)return;
         const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
         const media=extractTgMedia(msg);
+        // msg.date is Unix seconds — pass raw, parseSourceDate handles it
+        if(!parseSourceDate(msg.date||null))return; // skip if too old / invalid
+        const pubDate=parseSourceDate(msg.date);
         const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
         liveTelegramPosts.push(postObj);
         if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-        addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        addLiveItem(text,ch.label,msg.date,link,ch.zone,ch.ty,true,media);
         added++;
       });
       if(added>0){console.log(`[TG] ${ch.channel}: OK via tg.i-c-a.su direct (${added} items)`);return;}
     }
   }catch(e){console.log(`[TG] ${ch.channel}: tg.i-c-a.su direct failed (${e.message})`);}
 
-  // ── METHOD 1b: tg.i-c-a.su via free CORS proxies (if direct blocked) ──
+  // ── METHOD 1b: tg.i-c-a.su via free CORS proxies ──
   const tgJsonUrl=TG_JSON_API+ch.channel+'?limit=20';
   for(const makeProxy of FREE_PROXIES){
     try{
-      const r=await fetch(makeProxy(tgJsonUrl),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+      const r=await fetch(makeProxy(tgJsonUrl),{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
       if(!r.ok)continue;
       const d=await r.json();
       const msgs=Array.isArray(d)?d:(d.messages||[]);
@@ -363,14 +501,14 @@ async function fetchTelegramChannel(ch){
         msgs.slice(-15).forEach(msg=>{
           const text=typeof msg==='string'?msg:stripHtml(msg.text||msg.message||msg.caption||'');
           if(!text||text.length<15)return;
-          const pubDate=msg.date?new Date(msg.date*1000):new Date();
-          if(pubDate.getTime()<cutoff)return;
           const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
           const media=extractTgMedia(msg);
+          if(!parseSourceDate(msg.date||null))return;
+          const pubDate=parseSourceDate(msg.date);
           const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
           liveTelegramPosts.push(postObj);
           if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-          addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+          addLiveItem(text,ch.label,msg.date,link,ch.zone,ch.ty,true,media);
           added++;
         });
         if(added>0){console.log(`[TG] ${ch.channel}: OK via tg.i-c-a.su+freeproxy (${added} items)`);return;}
@@ -378,26 +516,27 @@ async function fetchTelegramChannel(ch){
     }catch(e){continue;}
   }
 
-  // ── METHOD 2: RSSHub direct (rsshub.app has open CORS, no Worker needed) ──
+  // ── METHOD 2: RSSHub direct ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
-    const r=await fetch(rssUrl,{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+    const r=await fetch(rssUrl,{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
     if(!r.ok)throw new Error('RSSHub direct '+r.status);
     const xml=await r.text();
     const items=parseRSSXml(xml);
     if(items.length>0){
       let added=0;
-      items.slice(0,15).reverse().forEach(item=>{
+      items.slice(0,15).forEach(item=>{
         const text=stripHtml(item.title||item.description||'');
         if(!text||text.length<15)return;
-        const pubDate=item.pubDate?new Date(item.pubDate):new Date();
-        if(pubDate.getTime()<cutoff)return;
         const link=item.link||`https://t.me/${ch.channel}`;
         const media=extractRSSMedia(item.description||'');
+        // item.pubDate is a date string from RSS — pass raw
+        if(!parseSourceDate(item.pubDate||null))return;
+        const pubDate=parseSourceDate(item.pubDate);
         const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
         liveTelegramPosts.push(postObj);
         if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-        addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        addLiveItem(text,ch.label,item.pubDate,link,ch.zone,ch.ty,true,media);
         added++;
       });
       if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub direct (${added} items)`);return;}
@@ -408,23 +547,23 @@ async function fetchTelegramChannel(ch){
   const rsshubUrl=RSSHUB_TG+ch.channel;
   for(const makeProxy of FREE_PROXIES){
     try{
-      const r=await fetch(makeProxy(rsshubUrl),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+      const r=await fetch(makeProxy(rsshubUrl),{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
       if(!r.ok)continue;
       const xml=await r.text();
       const items=parseRSSXml(xml);
       if(items.length>0){
         let added=0;
-        items.slice(0,15).reverse().forEach(item=>{
+        items.slice(0,15).forEach(item=>{
           const text=stripHtml(item.title||item.description||'');
           if(!text||text.length<15)return;
-          const pubDate=item.pubDate?new Date(item.pubDate):new Date();
-          if(pubDate.getTime()<cutoff)return;
           const link=item.link||`https://t.me/${ch.channel}`;
           const media=extractRSSMedia(item.description||'');
+          if(!parseSourceDate(item.pubDate||null))return;
+          const pubDate=parseSourceDate(item.pubDate);
           const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
           liveTelegramPosts.push(postObj);
           if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-          addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+          addLiveItem(text,ch.label,item.pubDate,link,ch.zone,ch.ty,true,media);
           added++;
         });
         if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub+freeproxy (${added} items)`);return;}
@@ -432,26 +571,26 @@ async function fetchTelegramChannel(ch){
     }catch(e){continue;}
   }
 
-  // ── METHOD 3: RSSHub via Worker proxy (last resort) ──
+  // ── METHOD 3: RSSHub via Worker proxy ──
   try{
     const rssUrl=RSSHUB_TG+ch.channel;
-    const r=await fetch(PROXY(rssUrl),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })()});
+    const r=await fetch(PROXY(rssUrl),{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),10000);return _c.signal;})()});
     if(!r.ok)throw new Error('RSSHub proxy '+r.status);
     const xml=await r.text();
     const items=parseRSSXml(xml);
     if(items.length>0){
       let added=0;
-      items.slice(0,15).reverse().forEach(item=>{
+      items.slice(0,15).forEach(item=>{
         const text=stripHtml(item.title||item.description||'');
         if(!text||text.length<15)return;
-        const pubDate=item.pubDate?new Date(item.pubDate):new Date();
-        if(pubDate.getTime()<cutoff)return;
         const link=item.link||`https://t.me/${ch.channel}`;
         const media=extractRSSMedia(item.description||'');
+        if(!parseSourceDate(item.pubDate||null))return;
+        const pubDate=parseSourceDate(item.pubDate);
         const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
         liveTelegramPosts.push(postObj);
         if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-        addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        addLiveItem(text,ch.label,item.pubDate,link,ch.zone,ch.ty,true,media);
         added++;
       });
       if(added>0){console.log(`[TG] ${ch.channel}: OK via RSSHub proxy (${added} items)`);return;}
@@ -460,21 +599,22 @@ async function fetchTelegramChannel(ch){
 
   // ── METHOD 4: Telegram web preview HTML via Worker proxy ──
   try{
-    const r=await fetch(PROXY('https://t.me/s/'+ch.channel),{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
+    const r=await fetch(PROXY('https://t.me/s/'+ch.channel),{signal:(()=>{const _c=new AbortController();setTimeout(()=>_c.abort(),8000);return _c.signal;})()});
     if(!r.ok)throw new Error('t.me '+r.status);
     const html=await r.text();
     const msgs=parseTelegramHTML(html,ch);
     if(msgs.length>0){
       let added=0;
       msgs.slice(-15).forEach(msg=>{
-        const pubDate=new Date(msg.date);
-        if(pubDate.getTime()<cutoff)return;
+        // msg.date is ISO string from <time datetime="..."> — pass raw
+        if(!parseSourceDate(msg.date))return;
+        const pubDate=parseSourceDate(msg.date);
         const link=msg.id?`https://t.me/${ch.channel}/${msg.id}`:`https://t.me/${ch.channel}`;
         const media=msg.media||[];
         const postObj={text:msg.text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
         liveTelegramPosts.push(postObj);
         if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-        addLiveItem(msg.text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+        addLiveItem(msg.text,ch.label,msg.date,link,ch.zone,ch.ty,true,media);
         added++;
       });
       if(added>0){console.log(`[TG] ${ch.channel}: OK via HTML scrape (${added} msgs)`);return;}
@@ -484,28 +624,23 @@ async function fetchTelegramChannel(ch){
   console.log(`[TG] ${ch.channel}: ALL METHODS FAILED`);
 }
 
-// Extract media attachments from a tg.i-c-a.su message object
-// Returns array of {type:'photo'|'video', thumb, url} or empty array
+// ── extractTgMedia ────────────────────────────────────────────────────────────
 function extractTgMedia(msg){
   const media=[];
   try{
     const m=msg.media;
     if(!m)return media;
-    // Photo
     if(m._==='messageMediaPhoto'&&m.photo&&m.photo.sizes){
-      // Pick largest size for url, second-largest for thumb
       const sizes=m.photo.sizes.filter(s=>s.bytes||s.url).sort((a,b)=>(b.w||0)-(a.w||0));
       if(sizes.length>0){
         const full=sizes[0];
         const thumb=sizes[sizes.length>1?1:0];
-        // tg.i-c-a.su sometimes returns base64 bytes — build data URL
         const toUrl=s=>s.url||(s.bytes?'data:image/jpeg;base64,'+btoa(String.fromCharCode(...new Uint8Array(s.bytes))):null);
         const url=toUrl(full);
         const thumbUrl=toUrl(thumb);
         if(url||thumbUrl)media.push({type:'photo',url:url||thumbUrl,thumb:thumbUrl||url});
       }
     }
-    // Video / GIF / Document with thumbnail
     if((m._==='messageMediaDocument'||m._==='messageMediaGif')&&m.document){
       const doc=m.document;
       const isVideo=doc.mime_type&&(doc.mime_type.startsWith('video/')||doc.mime_type==='image/gif');
@@ -516,11 +651,9 @@ function extractTgMedia(msg){
           if(t.bytes)thumbUrl='data:image/jpeg;base64,'+btoa(String.fromCharCode(...new Uint8Array(t.bytes)));
           else if(t.url)thumbUrl=t.url;
         }
-        // Video URL from tg.i-c-a.su isn't directly accessible — link to post
         media.push({type:'video',url:null,thumb:thumbUrl});
       }
     }
-    // Web page preview image
     if(m._==='messageMediaWebPage'&&m.webpage&&m.webpage.photo){
       const sizes=(m.webpage.photo.sizes||[]).filter(s=>s.url).sort((a,b)=>(b.w||0)-(a.w||0));
       if(sizes.length>0)media.push({type:'photo',url:sizes[0].url,thumb:(sizes[1]||sizes[0]).url});
@@ -529,7 +662,8 @@ function extractTgMedia(msg){
   return media;
 }
 
-// Helper: inject tg.i-c-a.su JSON messages into feeds (with deduplication)
+// ── injectTgMessages ──────────────────────────────────────────────────────────
+// cutoff param kept for API compat but ignored — parseSourceDate enforces MAX_AGE_MS.
 const seenPostIds=new Set();
 function injectTgMessages(messages,ch,cutoff){
   let added=0;
@@ -537,10 +671,9 @@ function injectTgMessages(messages,ch,cutoff){
     if(!msg.message&&!msg.text)return;
     const text=stripHtml(msg.message||msg.text||'');
     if(!text||text.length<15)return;
-    let pubDate;
-    if(msg.date){pubDate=typeof msg.date==='number'?new Date(msg.date*1000):new Date(msg.date);}
-    else{pubDate=new Date();}
-    if(pubDate.getTime()<cutoff)return;
+    // Pass msg.date raw — parseSourceDate handles seconds→ms and the 48h cutoff
+    if(!parseSourceDate(msg.date||null))return;
+    const pubDate=parseSourceDate(msg.date);
     const postId=msg.id||'';
     const dedupeKey=ch.channel+'_'+postId+'_'+text.slice(0,50);
     if(seenPostIds.has(dedupeKey))return;
@@ -551,13 +684,13 @@ function injectTgMessages(messages,ch,cutoff){
     const postObj={text,source:ch.label,pubDate:pubDate.toISOString(),link,zone:ch.zone,ty:ch.ty,channel:ch.channel,media};
     liveTelegramPosts.push(postObj);
     if(liveTelegramPosts.length>MAX_TG_POSTS)liveTelegramPosts.shift();
-    addLiveItem(text,ch.label,pubDate.toISOString(),link,ch.zone,ch.ty,true,media);
+    addLiveItem(text,ch.label,msg.date,link,ch.zone,ch.ty,true,media);
     added++;
   });
   return added>0;
 }
 
-// ── Match a post to conflict zones by keyword ───────────────────────────────
+// ── matchZones / getPostsForZone ──────────────────────────────────────────────
 function matchZones(text){
   const matches=[];
   for(const[zone,patterns]of Object.entries(ZONE_KEYWORDS)){
@@ -566,7 +699,6 @@ function matchZones(text){
   return matches;
 }
 
-// ── Get real posts relevant to a specific conflict zone ──────────────────────
 function getPostsForZone(regionOrName){
   const zone=regionOrName;
   return liveTelegramPosts.filter(p=>{
@@ -577,11 +709,11 @@ function getPostsForZone(regionOrName){
   }).slice(-20);
 }
 
-// ── Master refresh ───────────────────────────────────────────────────────────
+// ── Master refresh ────────────────────────────────────────────────────────────
 let tgFetchOk=false;
 let feedRefreshing=false;
 async function refreshLiveFeed(){
-  if(feedRefreshing)return;// prevent overlapping refreshes
+  if(feedRefreshing)return;
   feedRefreshing=true;
   const statusEl=document.getElementById('feed-status');
   statusEl.textContent='SYNCING…';
@@ -589,11 +721,9 @@ async function refreshLiveFeed(){
 
   const preCount=liveTelegramPosts.length;
 
-  // ── News queries: rotate through batches to spread Worker load ──
-  // Each 5-min cycle runs QUERY_BATCH_SIZE queries; full rotation every ~15min
-  const batchStart = _queryBatchIdx * QUERY_BATCH_SIZE;
-  const batchQueries = FEED_QUERIES.slice(batchStart, batchStart + QUERY_BATCH_SIZE);
-  _queryBatchIdx = (batchStart + QUERY_BATCH_SIZE >= FEED_QUERIES.length) ? 0 : _queryBatchIdx + 1;
+  const batchStart=_queryBatchIdx*QUERY_BATCH_SIZE;
+  const batchQueries=FEED_QUERIES.slice(batchStart,batchStart+QUERY_BATCH_SIZE);
+  _queryBatchIdx=(batchStart+QUERY_BATCH_SIZE>=FEED_QUERIES.length)?0:_queryBatchIdx+1;
 
   const newsPromises=batchQueries.map((q,i)=>
     new Promise(r=>setTimeout(()=>fetchNewsQuery(q).then(r).catch(r),i*200))
@@ -601,8 +731,6 @@ async function refreshLiveFeed(){
   const rssPromises=RSS_FEEDS.map((feed,i)=>
     new Promise(r=>setTimeout(()=>fetchRSSFeed(feed).then(r).catch(r),i*300))
   );
-
-  // Telegram: stagger 400ms apart (respect rate limits but faster than 800ms)
   const tgPromises=TELEGRAM_OSINT_CHANNELS.map((ch,i)=>
     new Promise(r=>setTimeout(()=>fetchTelegramChannel(ch).then(r).catch(r),i*400))
   );
@@ -621,16 +749,14 @@ async function refreshLiveFeed(){
     statusEl.textContent='NEWS ONLY // TG RETRY 5m';
     statusEl.style.color='var(--warning)';
   }
-  console.log(`[WWO] Feed sync: batch ${_queryBatchIdx}/${Math.ceil(FEED_QUERIES.length/QUERY_BATCH_SIZE)}, ${newPosts} new TG posts, ${ofE.children.length} feed items`);
+  const pane=document.getElementById('of');
+  console.log(`[WWO] Feed sync: batch ${_queryBatchIdx}/${Math.ceil(FEED_QUERIES.length/QUERY_BATCH_SIZE)}, ${newPosts} new TG posts, ${pane?pane.children.length:0} feed items`);
   feedRefreshing=false;
 }
 
-// Initial load, then full refresh every 5 minutes (news is not sub-minute)
 refreshLiveFeed();
-setInterval(refreshLiveFeed, 5 * 60 * 1000); // 5min — was 60s (too aggressive)
+setInterval(refreshLiveFeed,5*60*1000);
 
-// Quick Telegram-only refresh every 90s (primary channels only)
-// Telegram is the real-time source; keep it responsive but not hammering
 setInterval(async()=>{
   if(feedRefreshing||orreryActive)return;
   const primaryChannels=TELEGRAM_OSINT_CHANNELS.slice(0,4);
@@ -638,4 +764,4 @@ setInterval(async()=>{
     await fetchTelegramChannel(ch);
     await new Promise(r=>setTimeout(r,300));
   }
-},90*1000); // 90s — was 30s
+},90*1000);
