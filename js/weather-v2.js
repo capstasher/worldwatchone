@@ -164,6 +164,12 @@ function initWeather(map) {
   map.addLayer({ id: 'storm-cone-line', type: 'line', source: 'storm-cones',
     paint: { 'line-color': ['get', 'color'], 'line-width': 1.2, 'line-opacity': 0.5, 'line-dasharray': [3, 2] }
   });
+  // Past track (solid — the path the storm already took)
+  map.addLayer({ id: 'storm-past-track', type: 'line', source: 'storms',
+    filter: ['==', ['get', 'type'], 'past-track'],
+    paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.55 }
+  });
+  // Forecast track (dashed — predicted path)
   map.addLayer({ id: 'storm-track', type: 'line', source: 'storms',
     filter: ['==', ['get', 'type'], 'track'],
     paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [4,2], 'line-opacity': 0.5 }
@@ -237,7 +243,7 @@ function initWeather(map) {
 
   // Register all in lMap / layerVis for togL()
   lMap.fires         = ['fire-glow', 'fire-dot'];
-  lMap.storms        = ['storm-cone-fill','storm-cone-line','storm-glow','storm-dot','storm-track'];
+  lMap.storms        = ['storm-cone-fill','storm-cone-line','storm-glow','storm-dot','storm-track','storm-past-track'];
   lMap.volcanoes     = ['volc-glow', 'volc-dot'];
   lMap.tsunamis      = ['tsunami-ring', 'tsunami-dot'];
   lMap.floods        = ['flood-glow', 'flood-dot'];
@@ -458,75 +464,205 @@ function parseFIRMScsv(csv) {
 }
 
 // ── NOAA NHC — active tropical storms ────────────────────────────────────────
-async function fetchStorms() {
-  try {
-    const url = 'https://www.nhc.noaa.gov/CurrentStorms.json';
-    const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })() });
-    if (!r.ok) throw new Error('NHC ' + r.status);
-    const d = await r.json();
-    const features = parseNHCStorms(d);
-    const src = map.getSource('storms');
-    if (src) src.setData({ type: 'FeatureCollection', features });
-    const el = document.getElementById('storm-cnt');
-    if (el) el.textContent = features.filter(f => f.properties.type === 'center').length;
-    console.log('[WWO] NHC: ' + features.filter(f => f.properties.type === 'center').length + ' active storms');
-    if (d.activeStorms) _fetchStormCones(d.activeStorms);
-  } catch(e) {
-    try { await fetchStormsRSS(); } catch(e2) { console.warn('[WWO] NHC error:', e.message); }
-  }
+// ── GLOBAL TROPICAL CYCLONE TRACKING (GDACS + NHC fallback) ──────────────────
+// GDACS = EU Joint Research Centre — aggregates NHC (Atlantic/E.Pacific) +
+// JTWC (W.Pacific, Indian Ocean, Southern Hemisphere) — free, no auth, global.
+// Returns: past track (best track points), current position, forecast track,
+// and uncertainty cone for every active cyclone worldwide.
+
+const TC_CAT_COLORS = ['#00aaff','#00ff88','#ffff00','#ff8800','#ff4400','#ff0000'];
+
+// Wind speed (kt) → Saffir-Simpson cat index (0=TD,1=TS,2=Cat1..5=Cat5)
+function _windToCat(kt) {
+  if (kt < 34) return 0;
+  if (kt < 64) return 1;
+  if (kt < 83) return 2;
+  if (kt < 96) return 3;
+  if (kt < 113) return 4;
+  if (kt < 137) return 5;
+  return 6;
 }
 
-async function _fetchStormCones(storms) {
-  const coneFeatures = [];
-  const catColors = ['#00aaff','#00ff88','#ffcc00','#ff8800','#ff4400','#ff0000'];
-  for (const storm of storms) {
-    const id = (storm.id || '').toLowerCase();
-    if (!id) continue;
-    const cat = storm.classification === 'TD' ? 0 : storm.classification === 'TS' ? 1 : parseInt(storm.intensity) || 0;
-    const color = catColors[Math.min(cat, 5)];
-    const coneUrl = 'https://www.nhc.noaa.gov/gis/forecast/archive/' + id + '_5day_pgn.dat';
+async function fetchStorms() {
+  let gdacsOk = false;
+  try {
+    gdacsOk = await _fetchGDACSStorms();
+  } catch(e) {
+    console.warn('[WWO] GDACS TC error:', e.message);
+  }
+  // Also pull NHC as supplemental for Atlantic/E.Pacific label data
+  try { await _fetchNHCSupplemental(); } catch(_) {}
+}
+
+// ── GDACS TC: past track + current pos + forecast cone ───────────────────────
+async function _fetchGDACSStorms() {
+  // Step 1: Get list of active TC events from GDACS (last 4 days)
+  const listUrl = 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/TC';
+  const r = await fetch(PROXY(listUrl), {
+    signal: (()=>{ const c=new AbortController(); setTimeout(()=>c.abort(),12000); return c.signal; })()
+  });
+  if (!r.ok) throw new Error('GDACS list ' + r.status);
+  const data = await r.json();
+
+  const events = (data.features || []).filter(function(f) {
+    return f.properties && f.properties.eventtype === 'TC';
+  });
+
+  if (!events.length) {
+    console.log('[WWO] GDACS: no active TC events');
+    _clearStormLayers();
+    return true;
+  }
+
+  const stormFeatures = [];  // for 'storms' source: past track lines + current dot
+  const coneFeatures  = [];  // for 'storm-cones' source: forecast uncertainty polygon
+
+  for (const ev of events) {
+    const props    = ev.properties || {};
+    const eventId  = props.eventid;
+    const epId     = props.episodeid;
+    const name     = (props.name || props.eventname || 'UNNAMED').toUpperCase();
+    const wind     = parseInt(props.maxwind) || 0;          // kt
+    const cat      = _windToCat(wind);
+    const color    = TC_CAT_COLORS[Math.min(cat, TC_CAT_COLORS.length-1)];
+    const alertLvl = (props.alertlevel || '').toLowerCase(); // green/orange/red
+    const ty       = alertLvl === 'red' ? 'al' : alertLvl === 'orange' ? 'wa' : 'in';
+    const link     = props.url || ('https://gdacs.org/alert/TC/' + eventId);
+
+    // Step 2: Fetch per-event geometry (past track + forecast + cone)
     try {
-      const r = await fetch(PROXY(coneUrl), { signal: AbortSignal.timeout(8000) });
-      if (r.ok) {
-        const text = await r.text();
-        const coords = _parsePGN(text);
-        if (coords.length >= 3) {
-          coneFeatures.push({ type: 'Feature',
-            geometry: { type: 'Polygon', coordinates: [coords] },
-            properties: { name: storm.name || id, color, cat, storm: id }
+      const evUrl = 'https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=' + eventId + '&episodeid=' + epId;
+      const er = await fetch(PROXY(evUrl), { signal: AbortSignal.timeout(10000) });
+      if (!er.ok) throw new Error('ev ' + er.status);
+      const ed = await er.json();
+
+      let currentLon, currentLat;
+
+      // Parse geometry features from GDACS event data
+      (ed.features || []).forEach(function(feat) {
+        const fp = feat.properties || {};
+        const geomType = feat.geometry && feat.geometry.type;
+        const fClass   = (fp.class || fp.Class || fp.featureclass || '').toLowerCase();
+
+        // Past track (best track line)
+        if (geomType === 'LineString' && (fClass.includes('track') || fClass.includes('past') || fClass.includes('best'))) {
+          stormFeatures.push({
+            type: 'Feature',
+            geometry: feat.geometry,
+            properties: { type: 'past-track', color, name, cat, wind,
+              opacity: 0.6, dash: true }
           });
-          continue;
+        }
+
+        // Forecast track line
+        if (geomType === 'LineString' && fClass.includes('forecast')) {
+          stormFeatures.push({
+            type: 'Feature',
+            geometry: feat.geometry,
+            properties: { type: 'track', color, name, cat, wind }
+          });
+        }
+
+        // Uncertainty cone polygon
+        if (geomType === 'Polygon' && (fClass.includes('cone') || fClass.includes('uncertainty') || fClass.includes('error'))) {
+          coneFeatures.push({
+            type: 'Feature',
+            geometry: feat.geometry,
+            properties: { name, color, cat, storm: String(eventId) }
+          });
+        }
+
+        // Current position point
+        if (geomType === 'Point' && (fClass.includes('current') || fClass.includes('position') || fClass.includes('eye'))) {
+          const coords = feat.geometry.coordinates;
+          currentLon = coords[0]; currentLat = coords[1];
+        }
+      });
+
+      // Fallback: use event centroid from list if no explicit current point found
+      if (currentLon === undefined && ev.geometry) {
+        if (ev.geometry.type === 'Point') {
+          currentLon = ev.geometry.coordinates[0];
+          currentLat = ev.geometry.coordinates[1];
         }
       }
-    } catch(_) {}
-    if (storm.forecastTrack && storm.forecastTrack.coordinates && storm.forecastTrack.coordinates.length >= 2) {
-      const cone = _buildApproxCone(storm.forecastTrack.coordinates, storm.intensity || 0);
-      if (cone) coneFeatures.push({ type: 'Feature',
-        geometry: { type: 'Polygon', coordinates: [cone] },
-        properties: { name: storm.name || id, color, cat, storm: id }
-      });
+
+      if (currentLon !== undefined) {
+        stormFeatures.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [currentLon, currentLat] },
+          properties: {
+            type: 'center', name, cat, wind, color,
+            classification: cat <= 0 ? 'TD' : cat === 1 ? 'TS' : 'HU',
+            id: String(eventId), alert: alertLvl
+          }
+        });
+      }
+
+      // If GDACS didn't give us a cone, build an approximate one from forecast track
+      if (!coneFeatures.find(f => f.properties.storm === String(eventId))) {
+        const fcastLine = (ed.features || []).find(function(f) {
+          const fc = (f.properties && (f.properties.class || f.properties.Class || f.properties.featureclass) || '').toLowerCase();
+          return f.geometry && f.geometry.type === 'LineString' && fc.includes('forecast');
+        });
+        if (fcastLine) {
+          const cone = _buildApproxCone(fcastLine.geometry.coordinates, wind);
+          if (cone) coneFeatures.push({
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [cone] },
+            properties: { name, color, cat, storm: String(eventId) }
+          });
+        }
+      }
+
+      addLiveItem('CYCLONE ' + name + ' (' + (cat <= 0 ? 'TD' : cat === 1 ? 'TS' : 'CAT ' + (cat-1)) + ') ' + wind + 'kt',
+        'GDACS/TC', new Date().toISOString(), link, 'GEO', ty, false);
+
+    } catch(evErr) {
+      // Fallback: use list centroid only
+      console.warn('[WWO] GDACS event detail failed for', eventId, evErr.message);
+      if (ev.geometry && ev.geometry.type === 'Point') {
+        const [lon, lat] = ev.geometry.coordinates;
+        stormFeatures.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [lon, lat] },
+          properties: { type: 'center', name, cat, wind, color,
+            classification: cat <= 0 ? 'TD' : cat === 1 ? 'TS' : 'HU', id: String(eventId) }
+        });
+      }
     }
   }
+
+  // Push to map
+  const src = map.getSource('storms');
+  if (src) src.setData({ type: 'FeatureCollection', features: stormFeatures });
   const coneSrc = map.getSource('storm-cones');
   if (coneSrc) coneSrc.setData({ type: 'FeatureCollection', features: coneFeatures });
-  console.log('[WWO] Storm cones: ' + coneFeatures.length + ' polygons loaded');
+
+  const centerCount = stormFeatures.filter(f => f.properties.type === 'center').length;
+  const el = document.getElementById('storm-cnt');
+  if (el) el.textContent = centerCount;
+  console.log('[WWO] GDACS TC: ' + centerCount + ' storms, ' + coneFeatures.length + ' cones');
+  return true;
 }
 
-function _parsePGN(text) {
-  return text.trim().split(/\n/).map(function(line) {
-    const parts = line.trim().split(/\s+/);
-    const lon = parseFloat(parts[0]), lat = parseFloat(parts[1]);
-    return (!isNaN(lon) && !isNaN(lat)) ? [lon, lat] : null;
-  }).filter(Boolean);
+function _clearStormLayers() {
+  const empty = { type: 'FeatureCollection', features: [] };
+  const src = map.getSource('storms');     if (src) src.setData(empty);
+  const cSrc = map.getSource('storm-cones'); if (cSrc) cSrc.setData(empty);
+  const el = document.getElementById('storm-cnt'); if (el) el.textContent = '0';
 }
 
-function _buildApproxCone(trackCoords, intensity) {
-  if (trackCoords.length < 2) return null;
+// Approximate cone from forecast track coords + intensity
+function _buildApproxCone(trackCoords, windKt) {
+  if (!trackCoords || trackCoords.length < 2) return null;
   const side1 = [], side2 = [];
-  const radii = [55, 75, 100, 130, 165, 200];
+  // NHC-style growing radii (nautical miles → degrees): small at t=0, growing
+  const baseNM = Math.max(30, Math.min(windKt * 0.6, 80));
   trackCoords.forEach(function(coord, i) {
     const lon = coord[0], lat = coord[1];
-    const r = (radii[Math.min(i, radii.length-1)] / 111);
+    const growFactor = 1 + (i / (trackCoords.length - 1)) * 2.5;
+    const r = (baseNM * growFactor) / 111;
     let bearing = 0;
     if (i < trackCoords.length - 1) {
       const dx = trackCoords[i+1][0] - lon, dy = trackCoords[i+1][1] - lat;
@@ -535,57 +671,30 @@ function _buildApproxCone(trackCoords, intensity) {
       const dx = lon - trackCoords[i-1][0], dy = lat - trackCoords[i-1][1];
       bearing = Math.atan2(dx, dy);
     }
-    side1.push([lon + r * Math.cos(bearing), lat + r * Math.sin(bearing)]);
-    side2.unshift([lon - r * Math.cos(bearing), lat - r * Math.sin(bearing)]);
+    side1.push([lon + r * Math.cos(bearing - Math.PI/2), lat + r * Math.sin(bearing - Math.PI/2)]);
+    side2.unshift([lon + r * Math.cos(bearing + Math.PI/2), lat + r * Math.sin(bearing + Math.PI/2)]);
   });
-  return side1.concat(side2).concat([side1[0]]);
+  const ring = side1.concat(side2);
+  ring.push(ring[0]);
+  return ring;
 }
 
-async function fetchStormsRSS() {
-  try {
-    const url = 'https://www.nhc.noaa.gov/index-at.xml';
-    const r = await fetch(PROXY(url), { signal: (()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),10000); return _c.signal; })() });
-    if (!r.ok) return;
-    const xml = await r.text();
-    const items = parseRSSXml(xml);
-    items.forEach(function(item) {
-      if (item.title && item.title.match(/Advisory|Outlook|Discussion/)) {
-        addLiveItem('STORM ' + item.title, 'NHC', item.pubDate, item.link, 'GEO', 'wa', false);
-      }
-    });
-  } catch(e) {}
+// NHC supplemental: pull RSS advisory text for OSINT feed (Atlantic season only)
+async function _fetchNHCSupplemental() {
+  const url = 'https://www.nhc.noaa.gov/index-at.xml';
+  const r = await fetch(PROXY(url), { signal: AbortSignal.timeout(8000) });
+  if (!r.ok) return;
+  const xml = await r.text();
+  const items = parseRSSXml(xml);
+  items.forEach(function(item) {
+    if (item.title && item.title.match(/Advisory|Outlook/)) {
+      addLiveItem('NHC: ' + item.title, 'NHC', item.pubDate, item.link, 'GEO', 'wa', false);
+    }
+  });
 }
 
-function parseNHCStorms(d) {
-  const features = [];
-  if (!d || !d.activeStorms) return features;
-  const catColors = ['#00aaff','#00ff88','#ffcc00','#ff8800','#ff4400','#ff0000'];
-  d.activeStorms.forEach(function(storm) {
-    const cat   = storm.classification === 'TD' ? 0 : storm.classification === 'TS' ? 1 : parseInt(storm.intensity) || 0;
-    const wind  = parseInt(storm.intensity) || 0;
-    const color = catColors[Math.min(cat, catColors.length-1)];
-    if (storm.latitudeNumeric && storm.longitudeNumeric) {
-      features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [storm.longitudeNumeric, storm.latitudeNumeric] },
-        properties: { type: 'center', name: storm.name || storm.id, cat, wind, color,
-          classification: storm.classification || 'TC', id: storm.id }
-      });
-    }
-    if (storm.forecastTrack && storm.forecastTrack.coordinates) {
-      features.push({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: storm.forecastTrack.coordinates },
-        properties: { type: 'track', color, name: storm.name }
-      });
-    }
-    addLiveItem('STORM ' + (storm.classification || 'TC') + ' ' + (storm.name || storm.id) + ' ' + wind + 'kt winds',
-      'NHC', new Date().toISOString(),
-      'https://www.nhc.noaa.gov/refresh/graphics_' + (storm.id || '').toLowerCase(),
-      'GEO', 'wa', false);
-  });
-  return features;
-}
+// Layer filter update: add past-track type to storm-track layer
+// (handled below by updating the storm-track layer filter in initWeatherLayers)
 
 // ── GDACS — volcanoes, floods, tsunamis ───────────────────────────────────────
 async function fetchGDACS() {
