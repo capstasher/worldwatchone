@@ -177,16 +177,16 @@ function initWeather(map) {
   map.addLayer({ id: 'storm-glow', type: 'circle', source: 'storms',
     filter: ['==', ['get', 'type'], 'center'],
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['get', 'wind'], 0, 18, 64, 32, 130, 48],
-      'circle-color': ['interpolate', ['linear'], ['get', 'cat'], 0, '#00aaff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
-      'circle-opacity': 0.12, 'circle-blur': 1
+      'circle-radius': ['interpolate', ['linear'], ['to-number', ['get', 'wind'], 0], 0, 18, 64, 32, 130, 48],
+      'circle-color': ['interpolate', ['linear'], ['to-number', ['get', 'cat'], 0], 0, '#00aaff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
+      'circle-opacity': 0.18, 'circle-blur': 1
     }
   });
   map.addLayer({ id: 'storm-dot', type: 'symbol', source: 'storms',
     filter: ['==', ['get', 'type'], 'center'],
     layout: {
       'icon-image': 'storm-icon',
-      'icon-size': ['interpolate', ['linear'], ['get', 'wind'], 0, 0.75, 64, 0.95, 130, 1.2],
+      'icon-size': ['interpolate', ['linear'], ['to-number', ['get', 'wind'], 0], 0, 0.75, 64, 0.95, 130, 1.2],
       'text-field': ['get', 'name'], 'text-size': 10,
       'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
       'text-offset': [0, 1.7], 'text-allow-overlap': false, 'icon-allow-overlap': true
@@ -260,6 +260,31 @@ function initWeather(map) {
   fetchStorms();
   fetchGDACS();
   fetchNWSAlerts();
+
+  // ── DEBUG: inject test storm dot to verify render pipeline ──────────────────
+  // Remove this block once storm rendering is confirmed working
+  setTimeout(() => {
+    const src = map.getSource('storms');
+    if (src) {
+      const existing = src._data || { type: 'FeatureCollection', features: [] };
+      const testFeature = {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [130, -15] }, // near Australia
+        properties: { type: 'center', name: 'TEST', cat: 3, wind: 90, color: '#ff6600',
+          classification: 'HU', id: 'TEST-1', alert: 'red' }
+      };
+      // Only inject if no real storms showed up
+      const realData = src.serialize ? src.serialize().data : null;
+      const realFeatures = realData ? (realData.features || []) : existing.features || [];
+      if (realFeatures.filter(f => f.properties && f.properties.type === 'center').length === 0) {
+        src.setData({ type: 'FeatureCollection', features: [testFeature] });
+        console.log('[WWO DEBUG] Injected test storm at 130,-15 — if invisible, render pipeline broken');
+      } else {
+        console.log('[WWO DEBUG] Real storms present, skipping test injection');
+      }
+    }
+  }, 5000); // wait 5s for real fetch to complete first
+  // ── END DEBUG ────────────────────────────────────────────────────────────────
 
   setInterval(fetchFIRMS,     30 * 60 * 1000); // 30min
   setInterval(fetchStorms,    20 * 60 * 1000); // 20min
