@@ -1,12 +1,12 @@
 // ====== MAP INIT — MapLibre setup, sources, layers, init orchestration ======
 
 // ====== MAP ======
-const map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',center:[30,20],zoom:2.2,minZoom:1,maxZoom:20,attributionControl:false,maxPitch:70,projection:'globe'});
+var map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',center:[30,20],zoom:2.2,minZoom:1,maxZoom:20,attributionControl:false,maxPitch:70,projection:'globe'});
 map.on('style.load',()=>{try{map.setProjection({type:'globe'});}catch(e){try{map.setProjection('globe');}catch(e2){}}try{map.setFog({color:'rgba(255,90,0,0.9)',"high-color":'rgba(0,120,40,0.85)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3});}catch(e){}});
 
 // These are window-globals so all modules can access them
 var nervMode=false;
-var layerVis={flights:true,sats:true,conf:true,cams:true,osint:true,fronts:true,outages:true,quakes:true,fires:true,storms:true,volcanoes:true,tsunamis:true,cables:true,radiation:true,"terror-events":true,wind:false};
+var layerVis={flights:true,sats:true,conf:true,cams:true,osint:true,fronts:true,outages:true,quakes:true,fires:true,storms:true,volcanoes:true,tsunamis:true,cables:true,radiation:true,"terror-events":true,wind:false,floods:true,"nws-alerts":true};
 var baseLayerIds=[];// will store carto's own layer IDs — global for nerv-ctrl.js
 
 
@@ -62,7 +62,7 @@ map.on('load',()=>{
   // Initialize earthquake tracker
   try { initEarthquakes(map); } catch(e) { console.error('[WWO] initEarthquakes failed:', e); }
 
-  // Initialize weather tile layers + disaster pins
+  // Initialize weather tile layers + disaster pins (also registers floods, nws-alerts layers + lMap entries)
   try { initWeather(map); } catch(e) { console.error('[WWO] initWeather failed:', e); }
 
   try { initOutages(map); } catch(e) { console.error('[WWO] initOutages failed:', e); }
@@ -153,6 +153,23 @@ map.on('load',()=>{
 
 
 // ====== LAYER TOGGLES ======
-var lMap={flights:['fl-lyr','fl-glow','fl-emerg'],sats:['sat-lyr'],conf:['cheat','ccore'],cams:['cam-dot','cam-glow'],fronts:['fronts-fill','fronts-line','fronts-border'],outages:['outage-fill','outage-hatch','outage-border'],quakes:['eq-ring-0','eq-ring-1','eq-ring-2','eq-core','eq-label']};
-function togL(el){const l=el.dataset.l;layerVis[l]=!layerVis[l];el.classList.toggle('on');if(lMap[l])lMap[l].forEach(id=>{try{map.setLayoutProperty(id,'visibility',layerVis[l]?'visible':'none');}catch(e){}});if(l==='osint')document.getElementById('pr').style.display=layerVis.osint?'flex':'none';if(l==='outages'&&typeof setOutageVis==='function')setOutageVis(layerVis.outages);}
+var lMap={
+  flights:['fl-lyr','fl-glow','fl-emerg'],
+  sats:['sat-lyr'],
+  conf:['cheat','ccore'],
+  cams:['cam-dot','cam-glow'],
+  fronts:['fronts-fill','fronts-line','fronts-border'],
+  outages:['outage-fill','outage-hatch','outage-border'],
+  quakes:['eq-ring-0','eq-ring-1','eq-ring-2','eq-core','eq-label'],
+  floods:['flood-glow','flood-dot'],
+  'nws-alerts':['nws-fill','nws-line','nws-label'],
+};
+function togL(el){
+  const l=el.dataset.l;
+  layerVis[l]=!layerVis[l];
+  el.classList.toggle('on');
+  if(lMap[l])lMap[l].forEach(id=>{try{map.setLayoutProperty(id,'visibility',layerVis[l]?'visible':'none');}catch(e){}});
+  if(l==='osint')document.getElementById('pr').style.display=layerVis.osint?'flex':'none';
+  if(l==='outages'&&typeof setOutageVis==='function')setOutageVis(layerVis.outages);
+}
 function togWindParticles(el){el.classList.toggle('on');const vis=el.classList.contains('on');if(typeof setWindParticlesVisible==='function')setWindParticlesVisible(vis);}
