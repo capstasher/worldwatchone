@@ -152,8 +152,9 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="lt on" data-l="quakes" onclick="togL(this)"><div class="ind"></div>EARTHQUAKES<span class="cnt" id="eqc">0</span></div>
   <div class="lt on" data-l="outages" onclick="togL(this)"><div class="ind"></div>NET OUTAGES<span class="cnt" id="outc">0</span></div>
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
-  <div class="lt on" data-l="cables" onclick="togL(this)"><div class="ind"></div>UNDERSEA CABLES</div>
-  <div class="lt on" data-l="radiation" onclick="togL(this)"><div class="ind"></div>RADIATION</div>
+  <div class="lt on" data-l="cables" onclick="togL(this)"><div class="ind"></div>CABLES<span class="cnt" id="kca">⚡</span></div>
+  <div class="lt on" data-l="radiation" onclick="togL(this)"><div class="ind"></div>RADIATION<span class="cnt" id="krad">☢</span></div>
+  <div class="lt off" data-l="wind" onclick="togWindParticles(this)"><div class="ind"></div>WIND FLOW</div>
   <div class="lt on" data-l="terror-events" onclick="togL(this)"><div class="ind"></div>EVENTS<span class="cnt" id="ktev">0</span></div>
   <div class="dvd"></div>
    <div class="panel-title">ACTIVE TRACKERS</div>
@@ -177,6 +178,7 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="panel-title">DISASTER PINS</div>
   <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind ind--fire"></div>WILDFIRES<span class="cnt" id="fire-cnt">0</span></div>
   <div class="lt on" data-l="storms" onclick="togL(this)"><div class="ind ind--storm"></div>STORMS<span class="cnt" id="storm-cnt">0</span></div>
+  <div class="lt on" data-l="nws-alerts" onclick="togL(this)"><div class="ind" style="background:#ff0000;box-shadow:0 0 6px rgba(255,0,0,0.7)"></div>TORNADOES / SVR<span class="cnt" id="knws"></span></div>
   <div class="lt on" data-l="volcanoes" onclick="togL(this)"><div class="ind ind--volc"></div>VOLCANOES<span class="cnt" id="volc-cnt">0</span></div>
   <div class="lt on" data-l="tsunamis" onclick="togL(this)"><div class="ind ind--tsun"></div>TSUNAMIS<span class="cnt" id="tsun-cnt">0</span></div>
   <div class="lt on" data-l="floods" onclick="togL(this)"><div class="ind ind--flood"></div>FLOODS<span class="cnt" id="flood-cnt">0</span></div>
