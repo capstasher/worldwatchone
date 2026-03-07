@@ -2,7 +2,7 @@
 
 // ====== MAP ======
 var map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',center:[30,20],zoom:2.2,minZoom:1,maxZoom:20,attributionControl:false,maxPitch:70,projection:'globe'});
-map.on('style.load',()=>{try{map.setProjection({type:'globe'});}catch(e){try{map.setProjection('globe');}catch(e2){}}try{map.setFog({color:'rgba(255,90,0,0.9)',"high-color":'rgba(0,120,40,0.85)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3});}catch(e){}});
+// Globe projection set in load handler below (not style.load, which re-triggers and wipes dynamic layers)
 
 // These are window-globals so all modules can access them
 var nervMode=false;
@@ -12,6 +12,7 @@ var baseLayerIds=[];// will store carto's own layer IDs — global for nerv-ctrl
 
 map.on('load',()=>{
   // Snapshot Carto's base layer IDs before we add ours
+  // (globe projection set in Map constructor — do NOT set again here or in style.load)
   baseLayerIds=map.getStyle().layers.map(l=>l.id);
 
   // Register icons
