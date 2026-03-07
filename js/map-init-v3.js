@@ -38,8 +38,8 @@ map.on('load',()=>{
   // CTRL: --border is rgba(0,200,70,0.3) over black → #001a0a approx
   // We paint water layers a flat dark colour matching the panel aesthetic
   function applyOceanColour(isNerv) {
-    const oceanCtrl = '#001208';   // deep dark green — matches CTRL border/panel
-    const oceanNerv = '#120800';   // deep dark amber — matches NERV border/panel
+    const oceanCtrl = '#017A22';   // CTRL border colour
+    const oceanNerv = '#D8861A';   // NERV border colour
     const col = isNerv ? oceanNerv : oceanCtrl;
     baseLayerIds.forEach(id => {
       const l = map.getLayer(id);
