@@ -269,6 +269,16 @@ function initWeather(map) {
   layerVis.floods        = true;
   layerVis['nws-alerts'] = true;
 
+  // Explicitly sync all layer visibilities to match layerVis state.
+  // MapLibre may default new layers to 'none' if added after map.on('load')
+  // fires — this ensures the toggle state and actual visibility match.
+  Object.keys(layerVis).forEach(function(key) {
+    const vis = layerVis[key] ? 'visible' : 'none';
+    if (lMap[key]) lMap[key].forEach(function(id) {
+      try { map.setLayoutProperty(id, 'visibility', vis); } catch(e) {}
+    });
+  });
+
   fetchFIRMS();
   fetchStorms();
   fetchGDACS();
