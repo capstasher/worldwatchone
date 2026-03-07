@@ -174,22 +174,35 @@ function initWeather(map) {
     filter: ['==', ['get', 'type'], 'track'],
     paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [4,2], 'line-opacity': 0.5 }
   });
+  // Storm glow + solid dot (no icon dependency — always visible)
   map.addLayer({ id: 'storm-glow', type: 'circle', source: 'storms',
     filter: ['==', ['get', 'type'], 'center'],
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['to-number', ['get', 'wind'], 0], 0, 18, 64, 32, 130, 48],
-      'circle-color': ['interpolate', ['linear'], ['to-number', ['get', 'cat'], 0], 0, '#00aaff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
-      'circle-opacity': 0.18, 'circle-blur': 1
+      'circle-radius': ['interpolate', ['linear'], ['to-number', ['get', 'wind'], 30], 0, 22, 64, 34, 130, 50],
+      'circle-color': ['interpolate', ['linear'], ['to-number', ['get', 'cat'], 0], 0, '#00ccff', 1, '#ffcc00', 3, '#ff6600', 5, '#ff0000'],
+      'circle-opacity': 0.22, 'circle-blur': 1.2
+    }
+  });
+  // Solid visible dot (no icon-image dependency)
+  map.addLayer({ id: 'storm-core', type: 'circle', source: 'storms',
+    filter: ['==', ['get', 'type'], 'center'],
+    paint: {
+      'circle-radius': 7,
+      'circle-color': ['interpolate', ['linear'], ['to-number', ['get', 'cat'], 0], 0, '#00ccff', 1, '#ffee00', 3, '#ff6600', 5, '#ff0000'],
+      'circle-opacity': 0.95,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-opacity': 0.7
     }
   });
   map.addLayer({ id: 'storm-dot', type: 'symbol', source: 'storms',
     filter: ['==', ['get', 'type'], 'center'],
     layout: {
       'icon-image': 'storm-icon',
-      'icon-size': ['interpolate', ['linear'], ['to-number', ['get', 'wind'], 0], 0, 0.75, 64, 0.95, 130, 1.2],
+      'icon-size': 0.9,
       'text-field': ['get', 'name'], 'text-size': 10,
       'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-      'text-offset': [0, 1.7], 'text-allow-overlap': false, 'icon-allow-overlap': true
+      'text-offset': [0, 1.9], 'text-allow-overlap': false, 'icon-allow-overlap': true
     }, paint: { 'text-color': '#00ccff', 'text-halo-color': 'rgba(0,0,0,0.9)', 'text-halo-width': 1.5 }
   });
 
@@ -243,7 +256,7 @@ function initWeather(map) {
 
   // Register all in lMap / layerVis for togL()
   lMap.fires         = ['fire-glow', 'fire-dot'];
-  lMap.storms        = ['storm-cone-fill','storm-cone-line','storm-glow','storm-dot','storm-track','storm-past-track'];
+  lMap.storms        = ['storm-cone-fill','storm-cone-line','storm-glow','storm-core','storm-dot','storm-track','storm-past-track'];
   lMap.volcanoes     = ['volc-glow', 'volc-dot'];
   lMap.tsunamis      = ['tsunami-ring', 'tsunami-dot'];
   lMap.floods        = ['flood-glow', 'flood-dot'];
