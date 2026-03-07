@@ -605,3 +605,4 @@ body:not(.nerv) .ssn-rb.active{background:rgba(0,224,90,0.08);}
 /* Remove gap between title bars when sections are collapsed */
 .dvd{margin:4px 0;transition:all 0.2s;}
 .panel-section.collapsed + .dvd{margin:0;height:0;overflow:hidden;border:none;opacity:0;}
+.panel-title.no-chevron{cursor:default;}.panel-title.no-chevron::after{display:none;}
