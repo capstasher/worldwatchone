@@ -548,11 +548,11 @@ body.nerv #orrery-bb{background:linear-gradient(90deg, var(--grad-deep) 0%, var(
 /* ═══════════════════════════════════════════════════════════════════════════
    DISASTER PIN INDICATORS / TRACKER ROWS
    ═══════════════════════════════════════════════════════════════════════════ */
-.lt .ind--fire{border-color:#ff4400;}
+.lt .ind--fire{border-color:var(--text-dim);}
 .lt .ind--storm{border-color:#0088cc;}
 .lt .ind--volc{border-color:#cc3300;}
 .lt .ind--tsun{border-color:#00bbcc;}
-.lt .ind--flood{border-color:#1188ff;}
+.lt .ind--flood{border-color:var(--text-dim);}
 .lt.on .ind--fire,.lt.on .ind--storm,.lt.on .ind--volc,.lt.on .ind--tsun,.lt.on .ind--flood{background:var(--accent);border-color:var(--accent);box-shadow:0 0 6px var(--accent);}
 .lt.trk{cursor:pointer;padding:7px 14px;align-items:center;gap:9px;}
 .trk-pip{width:8px;height:8px;border-radius:50%;flex-shrink:0;animation:trk-blink 2.2s ease-in-out infinite;}
@@ -602,3 +602,6 @@ body:not(.nerv) .ssn-rb.active{background:rgba(0,224,90,0.08);}
 .panel-section.collapsed .panel-title::after{transform:rotate(-90deg);}
 .section-body{overflow:hidden;transition:max-height 0.25s ease;max-height:3000px;}
 .panel-section.collapsed .section-body{max-height:0;}
+/* Remove gap between title bars when sections are collapsed */
+.dvd{margin:4px 0;transition:all 0.2s;}
+.panel-section.collapsed + .dvd{margin:0;height:0;overflow:hidden;border:none;opacity:0;}
