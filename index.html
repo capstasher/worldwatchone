@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WORLD WATCH ONE // Global Monitoring System</title>
+<title>WORLD WATCH ONE // Global Situation Monitoring System</title>
 <script src="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@5.1.0/dist/maplibre-gl.css" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.4/satellite.min.js"></script>
@@ -133,8 +133,7 @@ window.addEventListener('unhandledrejection',function(e){
 
 <div id="search-box"><div style="position:relative"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px">&#9906;</span><input id="si" type="text" placeholder="Search flights, satellites, conflicts, cameras..."></div><div id="sr"></div></div>
 
-<div id="pl" class="panel">
-  <div class="panel-title">DATA LAYERS</div>
+<div id="pl" class="panel"><div class="panel-section"><div class="panel-title" onclick="togSection(this)">DATA LAYERS</div><div class="section-body">
   <div class="lt on" data-l="flights" onclick="togL(this)"><div class="ind"></div>FLIGHTS<span class="cnt" id="fc">0</span></div>
   <div style="padding-left:22px;font-size:9px;display:flex;gap:6px;margin:-2px 0 4px">
     <label style="color:#00cc66;cursor:pointer"><input type="checkbox" id="ft-com" checked onchange="filterFlights()" style="margin-right:2px;accent-color:#00cc66">COM</label>
@@ -149,15 +148,14 @@ window.addEventListener('unhandledrejection',function(e){
     <label style="color:#ffaa00;cursor:pointer;font-size:9px"><input type="checkbox" id="cam-uk" checked onchange="filterCams()" style="margin-right:2px;accent-color:#ffaa00">UK TRAFFIC</label>
   </div>
   <div class="lt on" data-l="fronts" onclick="togL(this)"><div class="ind"></div>FRONTLINES<span class="cnt" id="flc">14</span></div>
-  <div class="lt on" data-l="quakes" onclick="togL(this)"><div class="ind"></div>EARTHQUAKES<span class="cnt" id="eqc">0</span></div>
   <div class="lt on" data-l="outages" onclick="togL(this)"><div class="ind"></div>NET OUTAGES<span class="cnt" id="outc">0</span></div>
   <div class="lt on" data-l="osint" onclick="togL(this)"><div class="ind"></div>OSINT FEED</div>
-  <div class="lt on" data-l="cables" onclick="togL(this)"><div class="ind"></div>CABLES<span class="cnt" id="kca">⚡</span></div>
-  <div class="lt on" data-l="radiation" onclick="togL(this)"><div class="ind"></div>RADIATION<span class="cnt" id="krad">☢</span></div>
-  <div class="lt off" data-l="wind" onclick="togWindParticles(this)"><div class="ind"></div>WIND FLOW</div>
+  <div class="lt on" data-l="cables" onclick="togL(this)"><div class="ind"></div>CABLES<span class="cnt" id="kca"></span></div>
+  <div class="lt on" data-l="radiation" onclick="togL(this)"><div class="ind"></div>RADIATION<span class="cnt" id="krad"></span></div>
   <div class="lt on" data-l="terror-events" onclick="togL(this)"><div class="ind"></div>EVENTS<span class="cnt" id="ktev">0</span></div>
+  </div></div>
   <div class="dvd"></div>
-   <div class="panel-title">ACTIVE TRACKERS</div>
+  <div class="panel-section"><div class="panel-title" onclick="togSection(this)">ACTIVE TRACKERS</div><div class="section-body">
    <div class="trk-section-label">ACTIVE WARS</div>
    <div class="lt trk" onclick="openCTOByRegion('Iran War')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">IRAN · ISRAEL · LEBANON</span><span class="trk-sub">Op. Epic Fury · Hezbollah · Gulf strikes</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
    <div class="lt trk" onclick="openCTOByRegion('Ukraine')"><div class="trk-pip trk-pip--crit"></div><div class="trk-body"><span class="trk-name">UKRAINE · RUSSIA</span><span class="trk-sub">Donbas · Kursk · Zaporizhzhia</span></div><span class="trk-lv trk-lv--crit">CRITICAL</span></div>
@@ -174,16 +172,19 @@ window.addEventListener('unhandledrejection',function(e){
    <div class="trk-section-label">FLASH POINTS</div>
    <div class="lt trk" onclick="openCTOByRegion('Taiwan Strait')"><div class="trk-pip trk-pip--wa"></div><div class="trk-body"><span class="trk-name">TAIWAN STRAIT</span><span class="trk-sub">PLA exercises · ADIZ incursions</span></div><span class="trk-lv trk-lv--wa">WATCH</span></div>
    <div class="lt trk" onclick="openCTOByRegion('SCS')"><div class="trk-pip trk-pip--wa"></div><div class="trk-body"><span class="trk-name">SOUTH CHINA SEA</span><span class="trk-sub">Spratlys · Philippines · PLA-N</span></div><span class="trk-lv trk-lv--wa">WATCH</span></div>
-   <div class="dvd"></div>
-  <div class="panel-title">DISASTER PINS</div>
+   </div></div>
+  <div class="dvd"></div>
+  <div class="panel-section"><div class="panel-title" onclick="togSection(this)">DISASTER PINS</div><div class="section-body">
   <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind ind--fire"></div>WILDFIRES<span class="cnt" id="fire-cnt">0</span></div>
-  <div class="lt on" data-l="storms" onclick="togL(this)"><div class="ind ind--storm"></div>STORMS<span class="cnt" id="storm-cnt">0</span></div>
+  <div class="lt on" data-l="quakes" onclick="togL(this)"><div class="ind"></div>EARTHQUAKES<span class="cnt" id="eqc">0</span></div>
+  <div class="lt on" data-l="storms" onclick="togL(this)" style="display:none"><div class="ind ind--storm"></div>STORMS<span class="cnt" id="storm-cnt">0</span></div>
   <div class="lt on" data-l="nws-alerts" onclick="togL(this)"><div class="ind" style="background:#ff0000;box-shadow:0 0 6px rgba(255,0,0,0.7)"></div>TORNADOES / SVR<span class="cnt" id="knws"></span></div>
-  <div class="lt on" data-l="volcanoes" onclick="togL(this)"><div class="ind ind--volc"></div>VOLCANOES<span class="cnt" id="volc-cnt">0</span></div>
+  <div class="lt on" data-l="volcanoes" onclick="togL(this)" style="display:none"><div class="ind ind--volc"></div>VOLCANOES<span class="cnt" id="volc-cnt">0</span></div>
   <div class="lt on" data-l="tsunamis" onclick="togL(this)"><div class="ind ind--tsun"></div>TSUNAMIS<span class="cnt" id="tsun-cnt">0</span></div>
   <div class="lt on" data-l="floods" onclick="togL(this)"><div class="ind ind--flood"></div>FLOODS<span class="cnt" id="flood-cnt">0</span></div>
+  </div></div>
   <div class="dvd"></div>
-  <div class="panel-title">WEATHER LAYER</div>
+  <div class="panel-section"><div class="panel-title" onclick="togSection(this)">WEATHER LAYER</div><div class="section-body">
   <div class="wx-group">
     <div class="wx-btn" data-wx="temp"     onclick="setWeatherLayer(activeWeatherLayer==='temp'?null:'temp')">TEMP</div>
     <div class="wx-btn" data-wx="wind"     onclick="setWeatherLayer(activeWeatherLayer==='wind'?null:'wind')">WIND</div>
@@ -192,8 +193,9 @@ window.addEventListener('unhandledrejection',function(e){
     <div class="wx-btn" data-wx="clouds"   onclick="setWeatherLayer(activeWeatherLayer==='clouds'?null:'clouds')">CLOUDS</div>
     <div class="wx-btn" data-wx="pressure" onclick="setWeatherLayer(activeWeatherLayer==='pressure'?null:'pressure')">PRESSURE</div>
   </div>
+  </div></div>
   <div class="dvd"></div>
-  <div class="panel-title">AUDIO</div>
+  <div class="panel-section"><div class="panel-title" onclick="togSection(this)">AUDIO</div><div class="section-body">
   <div id="mp-sidebar">
     <div class="mp-inner">
       <div class="mp-track-info">
@@ -230,6 +232,7 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="str"><span>ZOOM</span><span class="v" id="vz" style="font-family:var(--fseg);font-size:14px">--</span></div>
   <div class="str"><span>LAT</span><span class="v" id="vla" style="font-family:var(--fseg);font-size:14px;min-width:80px;text-align:right">--</span></div>
   <div class="str"><span>LNG</span><span class="v" id="vlo" style="font-family:var(--fseg);font-size:14px;min-width:80px;text-align:right">--</span></div>
+  </div></div>
 </div>
 
 <div id="pr" class="panel">
@@ -282,7 +285,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="data/zone-geo-cache.js?v=1772244833"></script>
 <script src="js/conflicts.js?v=1772244833"></script>
 <script src="js/earthquakes.js?v=1772244833"></script>
-<script src="js/weather-v2.js?v=1772244833"></script>
+<script src="js/weather-v2.js?v=1772400000"></script>
 <script src="js/outages.js?v=1772244833"></script>
 <script src="js/nerv-ctrl-v2.js?v=1772244833"></script>
 <script src="js/osint.js?v=1772244833"></script>
@@ -292,7 +295,7 @@ window.addEventListener('unhandledrejection',function(e){
 <script src="js/radiation.js?v=1772244833"></script>
 <script src="js/wind-particles.js?v=1772244833"></script>
 <script src="js/terrorism.js?v=1772244833"></script>
-<script src="js/map-init-v2.js?v=1772244833"></script>
+<script src="js/map-init-v2.js?v=1772400000"></script>
 <script src="js/orrery.js?v=1772244833"></script>
 <script src="js/space-weather.js?v=1772244833"></script>
 <script src="js/music.js?v=1772244833"></script>
@@ -305,6 +308,12 @@ if(typeof InstallTrigger!=='undefined'||navigator.userAgent.includes('Firefox'))
       if(el)el.style.display='none';
     });
   });
+}
+</script>
+
+<script>
+function togSection(el){
+  el.closest('.panel-section').classList.toggle('collapsed');
 }
 </script>
 </body>
