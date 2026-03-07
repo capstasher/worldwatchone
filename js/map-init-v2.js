@@ -2,7 +2,26 @@
 
 // ====== MAP ======
 var map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',center:[30,20],zoom:2.2,minZoom:1,maxZoom:20,attributionControl:false,maxPitch:70,projection:'globe'});
-// Globe projection set in load handler below (not style.load, which re-triggers and wipes dynamic layers)
+// style.load fires on init AND again after setProjection('globe') is called.
+// The second fire wipes all dynamic layers. We guard projection with a flag,
+// and on subsequent fires we re-add all sources/layers via reinitLayers().
+let _globeSet = false;
+let _mapLoaded = false;
+map.on('style.load', () => {
+  try { map.setFog({color:'rgba(255,90,0,0.9)',"high-color":'rgba(0,120,40,0.85)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3}); } catch(e) {}
+  if (!_globeSet) {
+    _globeSet = true;
+    console.log('[WWO] style.load #1 — setting globe projection');
+    try { map.setProjection({ type: 'globe' }); } catch(e) { try { map.setProjection('globe'); } catch(e2) {} }
+    return;
+  }
+  // Second+ style.load fire — only reinit if map.on('load') has already run
+  console.log('[WWO] style.load re-fire — _mapLoaded=' + _mapLoaded);
+  if (_mapLoaded) {
+    console.log('[WWO] style.load re-fired after load — reinitialising layers');
+    reinitLayers();
+  }
+});
 
 // These are window-globals so all modules can access them
 var nervMode=false;
@@ -149,7 +168,31 @@ map.on('load',()=>{
   try{map.setFog({color:'rgba(255,80,0,0.9)',"high-color":'rgba(0,100,40,0.9)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3});}catch(e){}
   // Now switch to NERV mode (default)
   togNerv();
+  _mapLoaded = true;
 });
+
+function reinitLayers() {
+  // Re-run all module inits after a style.load wipes dynamic layers.
+  // Sources/layers are re-added; fetch intervals are already running so data will repopulate.
+  baseLayerIds = map.getStyle().layers.map(l => l.id);
+  try { initEarthquakes(map); } catch(e) {}
+  try { initWeather(map); } catch(e) {}
+  try { initOutages(map); } catch(e) {}
+  try { initConflictZones(map); } catch(e) {}
+  try { initCables(map); } catch(e) {}
+  try { initRadiation(map); } catch(e) {}
+  try { initTerrorEvents(map); } catch(e) {}
+  try { initWindParticles(map); } catch(e) {}
+  try { initClicks(map); } catch(e) {}
+  try { initWeatherClicks(map); } catch(e) {}
+  // Re-apply theme paints
+  const activePaints = nervMode ? nervPaints : ctrlPaints;
+  baseLayerIds.forEach(id => { try { const l = map.getLayer(id); if (!l) return; const t = l.type;
+    const np = activePaints[t]; if (np) Object.entries(np).forEach(([k,v]) => { try { map.setPaintProperty(id,k,v); } catch(e) {} });
+  } catch(e) {} });
+  try { map.setFog({color:'rgba(255,80,0,0.9)',"high-color":'rgba(0,100,40,0.9)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3}); } catch(e) {}
+  console.log('[WWO] reinitLayers complete');
+}
 
 
 
