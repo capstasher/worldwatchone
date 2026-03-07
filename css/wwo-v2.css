@@ -595,3 +595,10 @@ body:not(.nerv) .ssn-rb.active{background:rgba(0,224,90,0.08);}
 .trk-pip--wa{background:#4488ff;box-shadow:0 0 5px rgba(68,136,255,.4);}
 .trk-lv--wa{color:#4488ff;border:1px solid rgba(68,136,255,.25);background:rgba(68,136,255,.08);}
 .trk-section-label{font-family:var(--ft);font-size:7px;letter-spacing:2px;color:var(--text-dim);padding:6px 8px 3px;text-transform:uppercase;opacity:0.6;border-top:1px solid rgba(255,255,255,0.04);margin-top:2px;}
+
+/* ── Collapsible sidebar sections ── */
+.panel-title{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;}
+.panel-title::after{content:'▾';font-size:10px;opacity:0.5;transition:transform 0.2s;margin-left:6px;}
+.panel-section.collapsed .panel-title::after{transform:rotate(-90deg);}
+.section-body{overflow:hidden;transition:max-height 0.25s ease;max-height:3000px;}
+.panel-section.collapsed .section-body{max-height:0;}
