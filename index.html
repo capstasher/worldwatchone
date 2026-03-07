@@ -178,9 +178,9 @@ window.addEventListener('unhandledrejection',function(e){
   <div class="lt on" data-l="fires" onclick="togL(this)"><div class="ind ind--fire"></div>WILDFIRES<span class="cnt" id="fire-cnt">0</span></div>
   <div class="lt on" data-l="quakes" onclick="togL(this)"><div class="ind"></div>EARTHQUAKES<span class="cnt" id="eqc">0</span></div>
   <div class="lt on" data-l="storms" onclick="togL(this)" style="display:none"><div class="ind ind--storm"></div>STORMS<span class="cnt" id="storm-cnt">0</span></div>
-  <div class="lt on" data-l="nws-alerts" onclick="togL(this)"><div class="ind" style="background:#ff0000;box-shadow:0 0 6px rgba(255,0,0,0.7)"></div>TORNADOES / SVR<span class="cnt" id="knws"></span></div>
+  <div class="lt on" data-l="nws-alerts" onclick="togL(this)" style="display:none"><div class="ind" style="background:#ff0000;box-shadow:0 0 6px rgba(255,0,0,0.7)"></div>TORNADOES / SVR<span class="cnt" id="knws"></span></div>
   <div class="lt on" data-l="volcanoes" onclick="togL(this)" style="display:none"><div class="ind ind--volc"></div>VOLCANOES<span class="cnt" id="volc-cnt">0</span></div>
-  <div class="lt on" data-l="tsunamis" onclick="togL(this)"><div class="ind ind--tsun"></div>TSUNAMIS<span class="cnt" id="tsun-cnt">0</span></div>
+  <div class="lt on" data-l="tsunamis" onclick="togL(this)" style="display:none"><div class="ind ind--tsun"></div>TSUNAMIS<span class="cnt" id="tsun-cnt">0</span></div>
   <div class="lt on" data-l="floods" onclick="togL(this)"><div class="ind ind--flood"></div>FLOODS<span class="cnt" id="flood-cnt">0</span></div>
   </div></div>
   <div class="dvd"></div>
@@ -222,13 +222,15 @@ window.addEventListener('unhandledrejection',function(e){
       <div class="mp-vol-strip-fill"></div>
     </div>
   </div>
+  </div></div>
   <div class="dvd"></div>
-  <div class="panel-title">STATS</div>
+  <div class="panel-section"><div class="panel-title" onclick="togSection(this)">STATS</div><div class="section-body">
   <div class="str"><span>FLIGHTS</span><span class="v" id="sf">--</span></div>
   <div class="str"><span>SATS</span><span class="v" id="ss2">--</span></div>
   <div class="str"><span>CONFLICTS</span><span class="v" id="se">--</span></div>
+  </div></div>
   <div class="dvd"></div>
-  <div class="panel-title">VIEWPORT</div>
+  <div class="panel-section"><div class="panel-title" onclick="togSection(this)">VIEWPORT</div><div class="section-body">
   <div class="str"><span>ZOOM</span><span class="v" id="vz" style="font-family:var(--fseg);font-size:14px">--</span></div>
   <div class="str"><span>LAT</span><span class="v" id="vla" style="font-family:var(--fseg);font-size:14px;min-width:80px;text-align:right">--</span></div>
   <div class="str"><span>LNG</span><span class="v" id="vlo" style="font-family:var(--fseg);font-size:14px;min-width:80px;text-align:right">--</span></div>
