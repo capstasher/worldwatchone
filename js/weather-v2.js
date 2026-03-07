@@ -676,6 +676,14 @@ async function _fetchGDACSStorms() {
     }
   }
 
+  console.log('[WWO DEBUG] Storm center features:', JSON.stringify(
+    stormFeatures.filter(f => f.properties.type === 'center').map(f => ({
+      name: f.properties.name,
+      coords: f.geometry.coordinates,
+      cat: f.properties.cat,
+      wind: f.properties.wind
+    }))
+  ));
   const src = map.getSource('storms');
   if (src) src.setData({ type: 'FeatureCollection', features: stormFeatures });
   const coneSrc = map.getSource('storm-cones');
