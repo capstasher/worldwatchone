@@ -8,7 +8,6 @@ var map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com
 let _globeSet = false;
 let _mapLoaded = false;
 map.on('style.load', () => {
-  try { map.setFog({color:'rgba(255,90,0,0.9)',"high-color":'rgba(0,120,40,0.85)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3}); } catch(e) {}
   if (!_globeSet) {
     _globeSet = true;
     console.log('[WWO] style.load #1 — setting globe projection');
@@ -38,19 +37,14 @@ map.on('load',()=>{
   // CTRL: --border is rgba(0,200,70,0.3) over black → #001a0a approx
   // We paint water layers a flat dark colour matching the panel aesthetic
   function applyOceanColour(isNerv) {
-    const oceanCtrl = '#017A22';   // CTRL border colour
-    const oceanNerv = '#D8861A';   // NERV border colour
+    const oceanCtrl = '#017A22';
+    const oceanNerv = '#D8861A';
     const col = isNerv ? oceanNerv : oceanCtrl;
-    baseLayerIds.forEach(id => {
-      const l = map.getLayer(id);
-      if (!l) return;
-      if (id.includes('water') || id.includes('ocean') || id.includes('sea')) {
-        try { map.setPaintProperty(id, 'fill-color', col); } catch(e) {}
-        try { map.setPaintProperty(id, 'background-color', col); } catch(e) {}
-      }
-    });
-    // Also set the background (space behind globe)
-    try { map.setPaintProperty('background', 'background-color', '#000000'); } catch(e) {}
+    // Explicitly target the known Carto dark-matter water layers
+    try { map.setPaintProperty('water',        'fill-color', col); } catch(e) {}
+    try { map.setPaintProperty('water_shadow', 'fill-color', col); } catch(e) {}
+    // Background is the globe's deep space/ocean base — keep black
+    try { map.setPaintProperty('background',   'background-color', '#000000'); } catch(e) {}
   }
   applyOceanColour(nervMode);
   window._applyOceanColour = applyOceanColour;
@@ -186,7 +180,7 @@ map.on('load',()=>{
     const cp=ctrlPaints[t];if(cp)Object.entries(cp).forEach(([k,v])=>{try{map.setPaintProperty(id,k,v);}catch(e){}});
     if(id.includes('water')||t==='fill'&&id.includes('ocean')){try{map.setPaintProperty(id,'fill-color','#043d1e');}catch(e){}}
   }catch(e){}});
-  try{map.setFog({color:'rgba(255,80,0,0.9)',"high-color":'rgba(0,100,40,0.9)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3});}catch(e){}
+
   // Now switch to NERV mode (default)
   togNerv();
   _mapLoaded = true;
@@ -211,7 +205,6 @@ function reinitLayers() {
   baseLayerIds.forEach(id => { try { const l = map.getLayer(id); if (!l) return; const t = l.type;
     const np = activePaints[t]; if (np) Object.entries(np).forEach(([k,v]) => { try { map.setPaintProperty(id,k,v); } catch(e) {} });
   } catch(e) {} });
-  try { map.setFog({color:'rgba(255,80,0,0.9)',"high-color":'rgba(0,100,40,0.9)',"horizon-blend":0.08,"space-color":'#000000',"star-intensity":0.3}); } catch(e) {}
   console.log('[WWO] reinitLayers complete');
 }
 
