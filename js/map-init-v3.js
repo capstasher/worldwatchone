@@ -1,97 +1,233 @@
-// ====== NERV / CTRL MODE ======
-// NERV: amber/orange theme. CTRL: green theme. Both repaint Carto base layers.
-const nervPaints={
-  fill:{'fill-color':'#1a0e02','fill-outline-color':'#a05818'},
-  line:{'line-color':'rgba(240,150,30,0.75)','line-width':1.5},
-  background:{'background-color':'#1c0d00'},
-  symbol:{'text-color':'rgba(220,150,50,0.55)','text-halo-color':'rgba(8,5,0,0.9)','icon-color':'rgba(220,150,50,0.55)'},
-};
-const ctrlPaints={
-  fill:{'fill-color':'#021a08','fill-outline-color':'#18a058'},
-  line:{'line-color':'rgba(1,168,52,0.75)','line-width':1.5},
-  background:{'background-color':'#001c0d'},
-  symbol:{'text-color':'rgba(1,200,70,0.55)','text-halo-color':'rgba(0,5,2,0.9)','icon-color':'rgba(1,200,70,0.55)'},
-};
-let nervCached=false;
+// ====== MAP INIT — MapLibre setup, sources, layers, init orchestration ======
 
-// ── Firefox: disable CRT (filter on html breaks mix-blend-mode in Firefox) ──
-const _isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
-
-function togNerv(){
-  nervMode=!nervMode;document.body.classList.toggle('nerv',nervMode);
-  // Update overlay text
-  const ntEl=document.querySelector('#no .nt');
-  const nsEl=document.querySelector('#no .ns');
-  const ncTL=document.querySelector('#no .nc.tl');
-  const ncTR=document.querySelector('#no .nc.tr');
-  const ncBL=document.querySelector('#no .nc.bl');
-  const ncBR=document.querySelector('#no .nc.br');
-  if(nervMode){
-    if(ntEl)ntEl.textContent='NERV';
-    if(nsEl)nsEl.textContent="GOD'S IN HIS HEAVEN. ALL'S RIGHT WITH THE WORLD.";
-    if(ncTL)ncTL.textContent='SEC-01 // MAGI SURVEILLANCE SYSTEM';
-    if(ncTR)ncTR.textContent='PATTERN BLUE // ALL SYSTEMS NOMINAL';
-    if(ncBL)ncBL.textContent='CASPER-3 // BALTHASAR-2 // MELCHIOR-1';
-    if(ncBR)ncBR.textContent='PRIBNOW LINE: STABLE';
-  }else{
-    if(ntEl)ntEl.textContent='CTRL';
-    if(nsEl)nsEl.textContent='YOU CAN JUST DO THINGS. DIVINE WILL FLOWS WITHIN YOU.';
-    if(ncTL)ncTL.textContent='SEC-01 // DIVERGENCE METER ONLINE';
-    if(ncTR)ncTR.textContent='ATTRACTOR FIELD // DIVERGENCE '+liveDivergence;
-    if(ncBL)ncBL.textContent='IBN-5100 // PHONEWAVE (TEMP) // D-MAIL';
-    if(ncBR)ncBR.textContent='WORLDLINE: STABLE';
+// ====== MAP ======
+var map=new maplibregl.Map({container:'map',style:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',center:[30,20],zoom:2.2,minZoom:1,maxZoom:20,attributionControl:false,maxPitch:70,projection:'globe'});
+// style.load fires on init AND again after setProjection('globe') is called.
+// The second fire wipes all dynamic layers. We guard projection with a flag,
+// and on subsequent fires we re-add all sources/layers via reinitLayers().
+let _globeSet = false;
+let _mapLoaded = false;
+map.on('style.load', () => {
+  if (!_globeSet) {
+    _globeSet = true;
+    console.log('[WWO] style.load #1 — setting globe projection');
+    try { map.setProjection({ type: 'globe' }); } catch(e) { try { map.setProjection('globe'); } catch(e2) {} }
+    return;
   }
-  // Update button label
-  const btn=document.getElementById('nerv-btn-main');
-  if(btn)btn.textContent=nervMode?'CTRL':'NERV';
-  // Recolour outage overlay to match NERV/CTRL theme
-  if(typeof outageThemeUpdate === 'function') outageThemeUpdate();
-  if(typeof window._applyOceanColour === 'function') window._applyOceanColour(nervMode);
-  // Cache normal paints on first toggle
-  if(!nervCached){
-    baseLayerIds.forEach(id=>{try{const l=map.getLayer(id);if(!l)return;const t=l.type;
-    // We're caching CTRL mode paints as the "base" since CTRL applies on map load
-    // But actually we need to cache the raw Carto paints before any mode is applied
-    // Since CTRL paints are applied at init, we don't cache — we just use ctrlPaints to restore
-    }catch(e){}});nervCached=true;}
-  const activePaints=nervMode?nervPaints:ctrlPaints;
+  // Second+ style.load fire — only reinit if map.on('load') has already run
+  console.log('[WWO] style.load re-fire — _mapLoaded=' + _mapLoaded);
+  if (_mapLoaded) {
+    console.log('[WWO] style.load re-fired after load — reinitialising layers');
+    reinitLayers();
+  }
+});
+
+// These are window-globals so all modules can access them
+var nervMode=false;
+var layerVis={flights:true,sats:true,conf:true,cams:true,osint:true,fronts:true,outages:true,quakes:true,fires:true,storms:true,volcanoes:true,tsunamis:true,cables:true,radiation:true,"terror-events":true,wind:false,floods:true,"nws-alerts":true};
+var baseLayerIds=[];// will store carto's own layer IDs — global for nerv-ctrl.js
+
+
+map.on('load',()=>{
+  // Snapshot Carto's base layer IDs before we add ours
+  // (globe projection set in Map constructor — do NOT set again here or in style.load)
+  baseLayerIds=map.getStyle().layers.map(l=>l.id);
+
+  // ── v3: Set ocean/water colour to match panel border colour ──────────────
+  // CTRL: --border is rgba(0,200,70,0.3) over black → #001a0a approx
+  // We paint water layers a flat dark colour matching the panel aesthetic
+  function applyOceanColour(isNerv) {
+    const oceanCtrl = '#017A22';
+    const oceanNerv = '#D8861A';
+    const col = isNerv ? oceanNerv : oceanCtrl;
+    // Explicitly target the known Carto dark-matter water layers
+    try { map.setPaintProperty('water',        'fill-color', col); } catch(e) {}
+    try { map.setPaintProperty('water_shadow', 'fill-color', col); } catch(e) {}
+    // Background is the globe's deep space/ocean base — keep black
+    try { map.setPaintProperty('background',   'background-color', '#000000'); } catch(e) {}
+  }
+  applyOceanColour(nervMode);
+  window._applyOceanColour = applyOceanColour;
+
+  // Register icons
+  map.addImage('p-com',planeImg('#00cc66'));
+  map.addImage('p-light',planeImg('#00ccff'));
+  map.addImage('p-mil',planeImg('#ff3333'));
+  map.addImage('s-icon',satImg('#5588dd'));
+
+  // FLIGHTS — source pre-populated empty; OpenSky fills it on first fetch
+  map.addSource('flights',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'fl-glow',type:'circle',source:'flights',paint:{'circle-radius':['interpolate',['linear'],['zoom'],1,8,6,14,12,20],'circle-color':['case',['==',['get','mil'],1],'#ff3333',['==',['get','isLight'],1],'#00ccff','#00cc66'],'circle-opacity':0.25,'circle-blur':1}});
+  // Emergency squawk pulsing ring
+  map.addLayer({id:'fl-emerg',type:'circle',source:'flights',filter:['==',['get','emergency'],1],paint:{'circle-radius':['interpolate',['linear'],['zoom'],1,14,6,24,12,36],'circle-color':'#ff0000','circle-opacity':0.4,'circle-blur':0.6,'circle-stroke-width':2,'circle-stroke-color':'#ff0000','circle-stroke-opacity':0.8}});
+  map.addLayer({id:'fl-lyr',type:'symbol',source:'flights',layout:{'icon-image':['case',['==',['get','mil'],1],'p-mil',['==',['get','isLight'],1],'p-light','p-com'],'icon-size':['interpolate',['linear'],['zoom'],1,0.5,6,0.7,12,1],'icon-rotate':['get','bearing'],'icon-rotation-alignment':'map','icon-allow-overlap':true,'icon-ignore-placement':true}});
+
+  // FRONTLINES / CONFLICT ZONE SHADING (added first so dots render above)
+  map.addSource('frontlines',{type:'geojson',data:FRONTLINES});
+  map.addLayer({id:'fronts-fill',type:'fill',source:'frontlines',paint:{
+    'fill-color': 'rgba(255,0,0,0.12)',
+    'fill-opacity': 0.25
+  }});
+  map.addLayer({id:'fronts-line',type:'line',source:'frontlines',paint:{
+    'line-color': 'rgba(255,0,0,0.70)',
+    'line-width':['interpolate',['linear'],['zoom'],1,1.0,5,1.8,10,2.5],
+    'line-dasharray':[5,3.5]
+  }});
+  map.addLayer({id:'fronts-border',type:'line',source:'frontlines',paint:{
+    'line-color': 'rgba(255,0,0,0.10)',
+    'line-width':['interpolate',['linear'],['zoom'],1,6,5,10,10,16],
+    'line-blur':4
+  }});
+
+  // CONFLICT HEATGLOW (above frontlines)
+  map.addSource('conf-heat',{type:'geojson',data:{type:"FeatureCollection",features:confPts}});
+  map.addLayer({id:'cheat',type:'circle',source:'conf-heat',paint:{'circle-radius':['interpolate',['linear'],['get','int'],0.2,20,1.0,65],'circle-color':['interpolate',['linear'],['get','int'],0.2,'rgba(200,120,0,0.03)',0.5,'rgba(200,60,0,0.07)',0.8,'rgba(220,30,0,0.12)',1.0,'rgba(255,0,0,0.17)'],'circle-blur':1}});
+  map.addSource('conf-core',{type:'geojson',data:{type:"FeatureCollection",features:confPts}});
+  map.addLayer({id:'ccore',type:'circle',source:'conf-core',paint:{'circle-radius':['interpolate',['linear'],['get','int'],0.2,4,1.0,9],'circle-color':['interpolate',['linear'],['get','int'],0.25,'#cc8800',0.55,'#dd5500',0.8,'#dd2200',1.0,'#ff0000'],'circle-opacity':0.9,'circle-stroke-width':2,'circle-stroke-color':['interpolate',['linear'],['get','int'],0.25,'#cc8800',1.0,'#ff0000'],'circle-stroke-opacity':0.3}});
+
+  // CAMERAS
+  map.addSource('cams',{type:'geojson',data:{type:"FeatureCollection",features:mkCP()}});
+  map.addLayer({id:'cam-glow',type:'circle',source:'cams',paint:{'circle-radius':['interpolate',['linear'],['zoom'],1,10,8,20],'circle-color':['case',['==',['get','region'],'uk'],'#ffaa00','#00ff88'],'circle-opacity':0.06,'circle-blur':1}});
+  map.addLayer({id:'cam-dot',type:'circle',source:'cams',paint:{'circle-radius':['interpolate',['linear'],['zoom'],1,3,8,6,14,9],'circle-color':['case',['==',['get','region'],'uk'],'#ffaa00','#00ff88'],'circle-opacity':0.85,'circle-stroke-width':2,'circle-stroke-color':['case',['==',['get','region'],'uk'],'#ffaa00','#00ff88'],'circle-stroke-opacity':0.25}});
+
+  // SATELLITES
+  map.addSource('sats',{type:'geojson',data:{type:"FeatureCollection",features:mkSP()}});
+  map.addLayer({id:'sat-lyr',type:'symbol',source:'sats',layout:{'icon-image':'s-icon','icon-size':['interpolate',['linear'],['zoom'],1,0.6,6,0.85,12,1],'icon-allow-overlap':true,'icon-ignore-placement':true}});
+
+  // Initialize earthquake tracker
+  try { initEarthquakes(map); } catch(e) { console.error('[WWO] initEarthquakes failed:', e); }
+
+  // Initialize weather tile layers + disaster pins (also registers floods, nws-alerts layers + lMap entries)
+  try { initWeather(map); } catch(e) { console.error('[WWO] initWeather failed:', e); }
+
+  try { initOutages(map); } catch(e) { console.error('[WWO] initOutages failed:', e); }
+
+  try { initConflictZones(map); } catch(e) { console.error('[WWO] initConflictZones failed:', e); }
+
+  try { initCables(map); } catch(e) { console.error('[WWO] initCables failed:', e); }
+
+  try { initRadiation(map); } catch(e) { console.error('[WWO] initRadiation failed:', e); }
+
+  try { initTerrorEvents(map); } catch(e) { console.error('[WWO] initTerrorEvents failed:', e); }
+
+  try { initWindParticles(map); } catch(e) { console.error('[WWO] initWindParticles failed:', e); }
+
+  // Initialize click handlers and flight filter
+  try { initClicks(map); } catch(e) { console.error('[WWO] initClicks failed:', e); }
+
+  // Initialize weather click handlers (after map layers exist)
+  try { initWeatherClicks(map); } catch(e) { console.error('[WWO] initWeatherClicks failed:', e); }
+
+  // Coordinate display (map must exist)
+  map.on('move',()=>{const c=map.getCenter();document.getElementById('vz').textContent=map.getZoom().toFixed(2);document.getElementById('vla').textContent=c.lat.toFixed(4);document.getElementById('vlo').textContent=c.lng.toFixed(4);});
+  map.on('mousemove',e=>document.getElementById('mc').textContent=`${e.lngLat.lat.toFixed(4)} , ${e.lngLat.lng.toFixed(4)}`);
+
+  document.getElementById('fc').textContent='--';
+  document.getElementById('sf').textContent='--';
+  document.getElementById('sc2').textContent='...';
+  document.getElementById('ss2').textContent='...';
+  document.getElementById('cc2').textContent=CONF.length;
+  document.getElementById('se').textContent=CONF.length;
+  document.getElementById('kc').textContent=CAMS.length;
+
+  // ANIMATION — sats only
+  setInterval(()=>{const s=map.getSource('sats');if(s)s.setData({type:"FeatureCollection",features:mkSP()});},2000);
+
+  // ---- FLIGHT TYPE FILTER ----
+  window.flightFilter={com:true,mil:true,light:true};
+  window.filterFlights=function(){
+    window.flightFilter.com=document.getElementById('ft-com').checked;
+    window.flightFilter.mil=document.getElementById('ft-mil').checked;
+    window.flightFilter.light=document.getElementById('ft-light').checked;
+    const feats=mkOpenSkyFeatures();
+    const src=map.getSource('flights');
+    if(src)src.setData({type:'FeatureCollection',features:feats});
+    const total=feats.length;
+    document.getElementById('fc').textContent=total.toLocaleString();
+    document.getElementById('sf').textContent=total.toLocaleString();
+    console.log('[WWO] Flight filter applied: COM='+window.flightFilter.com+' MIL='+window.flightFilter.mil+' LIGHT='+window.flightFilter.light+' showing='+total);
+  };
+
+  window.filterCams=function(){
+    const feats=mkCP();
+    const src=map.getSource('cams');
+    if(src)src.setData({type:'FeatureCollection',features:feats});
+    document.getElementById('kc').textContent=feats.length;
+  };
+
+  // OpenSky live flight poll
+  fetchOpenSky();
+  let oskyInterval=60000;
+  let oskyBackoff=0;
+  let oskyTimer=setInterval(fetchOpenSky,oskyInterval);
+  function oskySchedule(ok){
+    clearInterval(oskyTimer);
+    if(ok){oskyBackoff=0;oskyInterval=60000;}
+    else{oskyBackoff=Math.min(oskyBackoff+1,5);oskyInterval=60000*Math.pow(1.5,oskyBackoff);}
+    oskyTimer=setInterval(fetchOpenSky,oskyInterval);
+    console.log(`[WWO] OpenSky next poll in ${Math.round(oskyInterval/1000)}s (backoff=${oskyBackoff})`);
+  }
+
+  // CelesTrak TLE fetch
+  fetchCelesTrak();
+  setInterval(fetchCelesTrak,2*60*60*1000);
+
+  // Kick off Wikipedia live sync (non-blocking)
+  fetchWikiSummaries();
+
+  // Apply CTRL green paints to base map first, then toggle to NERV
   baseLayerIds.forEach(id=>{try{const l=map.getLayer(id);if(!l)return;const t=l.type;
-    const np=activePaints[t];if(np)Object.entries(np).forEach(([k,v])=>{try{map.setPaintProperty(id,k,v);}catch(e){}});
-    if(id.includes('water')||t==='fill'&&id.includes('ocean')){
-      try{map.setPaintProperty(id,'fill-color',nervMode?'#3d1e04':'#043d1e');}catch(e){}}
+    const cp=ctrlPaints[t];if(cp)Object.entries(cp).forEach(([k,v])=>{try{map.setPaintProperty(id,k,v);}catch(e){}});
+    if(id.includes('water')||t==='fill'&&id.includes('ocean')){try{map.setPaintProperty(id,'fill-color','#043d1e');}catch(e){}}
   }catch(e){}});
 
+  // Now switch to NERV mode (default)
+  togNerv();
+  _mapLoaded = true;
+});
+
+function reinitLayers() {
+  // Re-run all module inits after a style.load wipes dynamic layers.
+  // Sources/layers are re-added; fetch intervals are already running so data will repopulate.
+  baseLayerIds = map.getStyle().layers.map(l => l.id);
+  try { initEarthquakes(map); } catch(e) {}
+  try { initWeather(map); } catch(e) {}
+  try { initOutages(map); } catch(e) {}
+  try { initConflictZones(map); } catch(e) {}
+  try { initCables(map); } catch(e) {}
+  try { initRadiation(map); } catch(e) {}
+  try { initTerrorEvents(map); } catch(e) {}
+  try { initWindParticles(map); } catch(e) {}
+  try { initClicks(map); } catch(e) {}
+  try { initWeatherClicks(map); } catch(e) {}
+  // Re-apply theme paints
+  const activePaints = nervMode ? nervPaints : ctrlPaints;
+  baseLayerIds.forEach(id => { try { const l = map.getLayer(id); if (!l) return; const t = l.type;
+    const np = activePaints[t]; if (np) Object.entries(np).forEach(([k,v]) => { try { map.setPaintProperty(id,k,v); } catch(e) {} });
+  } catch(e) {} });
+  console.log('[WWO] reinitLayers complete');
 }
 
-// ====== DIVERGENCE METER ======
-let liveDivergence='1.048596';
-async function fetchDivergence(){
-  try{
-    const r=await fetch('https://divergence.nyarchlinux.moe/api/divergence',{signal:(()=>{ const _c=new AbortController(); setTimeout(()=>_c.abort(),8000); return _c.signal; })()});
-    if(!r.ok)return;
-    const d=await r.json();
-    let v=String(d.divergence);
-    if(v.includes('.')){const[i,dec]=v.split('.');v=i+'.'+dec.slice(0,6);}
-    liveDivergence=v;
-    // Update the corner if in CTRL mode
-    if(!nervMode){
-      const el=document.querySelector('#no .nc.tr');
-      if(el)el.textContent='ATTRACTOR FIELD // DIVERGENCE '+liveDivergence;
-    }
-  }catch(e){}
-}
-fetchDivergence();
-setInterval(fetchDivergence,60*1000);// refresh every minute
 
 
-// ====== CRT COLOUR FILTER ======
-let crtMode = false;
-function togCRT() {
-  if (_isFirefox) return;
-  crtMode = !crtMode;
-  document.documentElement.classList.toggle('crt', crtMode);
-  // Persist preference
-  try { localStorage.setItem('wwo_crt', crtMode ? '1' : '0'); } catch(e) {}
+// ====== LAYER TOGGLES ======
+var lMap={
+  flights:['fl-lyr','fl-glow','fl-emerg'],
+  sats:['sat-lyr'],
+  conf:['cheat','ccore'],
+  cams:['cam-dot','cam-glow'],
+  fronts:['fronts-fill','fronts-line','fronts-border'],
+  outages:['outage-fill','outage-hatch','outage-border'],
+  quakes:['eq-ring-0','eq-ring-1','eq-ring-2','eq-core','eq-label'],
+  floods:['flood-glow','flood-dot'],
+  'nws-alerts':['nws-fill','nws-line','nws-label'],
+};
+function togL(el){
+  const l=el.dataset.l;
+  layerVis[l]=!layerVis[l];
+  el.classList.toggle('on');
+  if(lMap[l])lMap[l].forEach(id=>{try{map.setLayoutProperty(id,'visibility',layerVis[l]?'visible':'none');}catch(e){}});
+  if(l==='osint')document.getElementById('pr').style.display=layerVis.osint?'flex':'none';
+  if(l==='outages'&&typeof setOutageVis==='function')setOutageVis(layerVis.outages);
 }
-// Restore on load
-try { if (localStorage.getItem('wwo_crt') === '1') { crtMode = true; document.documentElement.classList.add('crt'); } } catch(e) {}
+function togWindParticles(el){el.classList.toggle('on');const vis=el.classList.contains('on');if(typeof setWindParticlesVisible==='function')setWindParticlesVisible(vis);}
